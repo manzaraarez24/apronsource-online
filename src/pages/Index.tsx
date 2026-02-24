@@ -135,7 +135,7 @@ const Index = () => {
       {/* About section */}
       <section id="about" className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
         <div className="glass rounded-3xl p-8 md:p-12 text-center">
-          <h2 className="font-display text-3xl font-bold text-foreground mb-4">Why Choose ApronCraft?</h2>
+          <h2 className="font-display text-3xl font-bold text-foreground mb-4">Why Choose ZARRKS?</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-10">
             We've been supplying premium salon capes and aprons for over a decade. Now available online for the first time.
           </p>

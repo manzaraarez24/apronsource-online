@@ -10,7 +10,7 @@ const HeroSection = () => {
       <div className="relative mx-auto max-w-7xl px-4 py-24 sm:py-32 lg:py-40">
         <div className="max-w-2xl">
           <span className="inline-block rounded-full bg-primary/20 px-4 py-1.5 text-xs font-semibold tracking-wide text-primary-foreground backdrop-blur-sm mb-6">
-            ✂️ Trusted by 500+ Salons
+            ✂️ ZARRKS — Trusted by 500+ Salons
           </span>
           <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold text-primary-foreground leading-tight mb-6">
             Professional Salon Capes & Aprons

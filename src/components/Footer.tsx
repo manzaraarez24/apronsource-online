@@ -1,4 +1,5 @@
-import { Scissors, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 const Footer = () => (
   <footer id="contact" className="bg-foreground text-primary-foreground">
@@ -6,8 +7,8 @@ const Footer = () => (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
         <div>
           <div className="flex items-center gap-2 mb-4">
-            <Scissors className="h-5 w-5 text-primary" />
-            <span className="font-display text-lg font-bold">ApronCraft</span>
+            <img src={logo} alt="ZARRKS logo" className="h-8 w-auto" />
+            <span className="font-display text-lg font-bold">ZARRKS</span>
           </div>
           <p className="text-sm text-primary-foreground/60 leading-relaxed">
             Premium quality hair cutting aprons and salon capes. Trusted by professionals across India.
@@ -41,7 +42,7 @@ const Footer = () => (
         </div>
       </div>
       <div className="border-t border-primary-foreground/10 mt-12 pt-8 text-center text-xs text-primary-foreground/40">
-        © 2026 ApronCraft. All rights reserved.
+        © 2026 ZARRKS. All rights reserved.
       </div>
     </div>
   </footer>

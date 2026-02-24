@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ShoppingCart, Search, Menu, X, Scissors } from "lucide-react";
+import { ShoppingCart, Search, Menu, X } from "lucide-react";
+import logo from "@/assets/logo.png";
 
 interface NavbarProps {
   cartCount: number;
@@ -17,8 +18,8 @@ const Navbar = ({ cartCount, onCartClick, searchQuery, onSearchChange }: NavbarP
         <div className="flex h-16 items-center justify-between gap-4">
           {/* Logo */}
           <div className="flex items-center gap-2 shrink-0">
-            <Scissors className="h-6 w-6 text-primary" />
-            <span className="font-display text-xl font-bold text-foreground">ApronCraft</span>
+            <img src={logo} alt="ZARRKS logo" className="h-8 w-auto" />
+            <span className="font-display text-xl font-bold text-foreground">ZARRKS</span>
           </div>
 
           {/* Search */}
