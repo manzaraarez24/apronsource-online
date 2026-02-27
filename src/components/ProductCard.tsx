@@ -86,7 +86,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
                 }}
                 onBlur={() => { if (qty < 50) setQty(50); }}
                 placeholder="Custom"
-                className={`w-16 px-2 py-1 text-xs font-semibold rounded border bg-muted/40 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all ${![50, 100, 200].includes(qty) && qty >= 50 ? "border-primary bg-primary/10 text-primary" : "border-border"
+                className={`w-14 sm:w-16 px-1.5 py-1 text-xs font-semibold rounded border bg-muted/40 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all ${![50, 100, 200].includes(qty) && qty >= 50 ? "border-primary bg-primary/10 text-primary" : "border-border"
                   }`}
               />
             </div>

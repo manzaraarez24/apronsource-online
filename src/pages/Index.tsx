@@ -60,10 +60,10 @@ const Index = () => {
       <HeroSection />
 
       {/* Products Section */}
-      <section id="products" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <section id="products" className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 py-8 sm:py-12">
         {/* Section Header */}
-        <div className="mb-8 flex flex-col items-center">
-          <h2 className="font-display text-3xl font-bold text-foreground mb-6 uppercase tracking-wider text-center">Our Collection</h2>
+        <div className="mb-6 flex flex-col items-center px-2">
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-4 uppercase tracking-wider text-center">Our Collection</h2>
 
           {/* Wholesale / Retail Toggle Tabs */}
           <div className="inline-flex items-center justify-center p-1 bg-muted/50 rounded-full border border-border/50 backdrop-blur-sm mb-4">
@@ -72,7 +72,7 @@ const Index = () => {
                 setActiveTab("Retail");
                 setSelectedCategory("All");
               }}
-              className={`px-8 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all duration-300 ${activeTab === "Retail"
+              className={`px-4 sm:px-8 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-widest transition-all duration-300 ${activeTab === "Retail"
                 ? "bg-primary text-primary-foreground shadow-lg glow-blue"
                 : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -84,7 +84,7 @@ const Index = () => {
                 setActiveTab("Wholesale");
                 setSelectedCategory("All");
               }}
-              className={`px-8 py-2.5 rounded-full text-sm font-bold uppercase tracking-widest transition-all duration-300 ${activeTab === "Wholesale"
+              className={`px-4 sm:px-8 py-2 sm:py-2.5 rounded-full text-xs sm:text-sm font-bold uppercase tracking-widest transition-all duration-300 ${activeTab === "Wholesale"
                 ? "bg-primary text-primary-foreground shadow-lg glow-blue"
                 : "text-muted-foreground hover:text-foreground"
                 }`}
@@ -92,7 +92,7 @@ const Index = () => {
               Bulk & Wholesale
             </button>
           </div>
-          <p className="text-muted-foreground text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground text-center max-w-[280px] sm:max-w-none">
             {activeTab === "Retail"
               ? "Browse single pieces for professional or personal use."
               : "Bulk supplies for salons, academies, and distributors (Min. 50 pieces)."}

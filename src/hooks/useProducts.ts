@@ -21,8 +21,21 @@ export const useProducts = () => {
                         if (!snapshot.empty) {
                             const fetchedProducts = snapshot.docs.map(doc => {
                                 const data = doc.data();
+
+                                // Fix image paths: If the seeded image is not an absolute URL (like firebasestorage),
+                                // it's likely a local Vite asset path string that broke.
+                                // We find the original imported asset from initialProducts.
+                                let finalImage = data.image;
+                                if (finalImage && !finalImage.startsWith('http') && !finalImage.startsWith('data:')) {
+                                    const localMatch = initialProducts.find(p => p.id === Number(doc.id) || p.name === data.name);
+                                    if (localMatch) {
+                                        finalImage = localMatch.image;
+                                    }
+                                }
+
                                 return {
                                     ...data,
+                                    image: finalImage,
                                     id: isNaN(Number(doc.id)) ? doc.id : Number(doc.id),
                                 };
                             }) as Product[];

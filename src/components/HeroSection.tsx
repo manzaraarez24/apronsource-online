@@ -13,17 +13,17 @@ const HeroSection = () => {
       {/* Subtle animated accent line */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
 
-      <div className="relative mx-auto max-w-7xl px-4 py-24 sm:py-32 lg:py-44">
+      <div className="relative mx-auto max-w-7xl px-4 py-16 sm:py-32 lg:py-44">
         <div className="max-w-2xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-5 py-2 text-xs font-semibold tracking-widest text-primary backdrop-blur-md mb-8 glow-blue uppercase">
+          <span className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-4 py-2 sm:px-5 sm:py-2 text-[10px] sm:text-xs font-semibold tracking-widest text-primary backdrop-blur-md mb-6 sm:mb-8 glow-blue uppercase">
             ✂️ Trusted by 500+ Salons Across India
           </span>
 
-          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-6 text-metallic">
+          <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold leading-tight mb-4 sm:mb-6 text-metallic">
             Professional Salon Capes & Aprons
           </h1>
 
-          <p className="text-lg text-foreground/60 mb-10 max-w-lg leading-relaxed">
+          <p className="text-base sm:text-lg text-foreground/60 mb-8 sm:mb-10 max-w-lg leading-relaxed">
             Premium quality hair cutting aprons for salons, barbershops, and home use. Waterproof, durable, and built to last.
           </p>
 
