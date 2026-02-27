@@ -13,6 +13,7 @@ import FAQ from "./pages/FAQ";
 import Privacy from "./pages/Privacy";
 import { AuthProvider } from "./lib/AuthContext";
 import { CartProvider } from "./hooks/useCart";
+import ScrollToTop from "./components/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -24,6 +25,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            <ScrollToTop />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/admin" element={<Admin />} />

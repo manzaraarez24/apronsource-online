@@ -10,7 +10,7 @@ const Privacy = () => {
         <div className="min-h-screen bg-background flex flex-col">
             <header className="sticky top-0 z-20 border-b border-border bg-background/80 backdrop-blur-md">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center gap-4">
-                    <button onClick={() => navigate(-1)} className="rounded-full p-2 hover:bg-primary/10 transition-colors">
+                    <button onClick={() => navigate("/")} className="rounded-full p-2 hover:bg-primary/10 transition-colors">
                         <ArrowLeft className="h-5 w-5 text-foreground" />
                     </button>
                     <h1 className="font-display text-xl font-bold uppercase tracking-widest text-foreground">Privacy Policy</h1>
