@@ -22,7 +22,7 @@ const Index = () => {
   const [selectedColor, setSelectedColor] = useState("All");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [sortBy, setSortBy] = useState("featured");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("list");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
@@ -200,29 +200,31 @@ const Index = () => {
       <CartDrawer open={cartOpen} onClose={() => setCartOpen(false)} items={cart} onUpdateQty={updateCartQty} onRemove={removeFromCart} onClearCart={clearCart} />
 
       {/* Floating Action Buttons */}
-      <div className="fixed bottom-6 left-0 right-0 z-50 pointer-events-none">
-        <div className="mx-auto max-w-7xl px-4 flex justify-between items-end">
-          {/* Phone Floating Button (Left) */}
-          <a
-            href="tel:+919990197268"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 pointer-events-auto border border-primary-foreground/20 shimmer"
-            aria-label="Call Us"
-          >
-            <Phone className="h-6 w-6 fill-current" />
-          </a>
+      {!cartOpen && (
+        <div className="fixed bottom-6 left-0 right-0 z-50 pointer-events-none transition-all duration-300">
+          <div className="mx-auto max-w-7xl px-4 flex justify-between items-end">
+            {/* Phone Floating Button (Left) */}
+            <a
+              href="tel:+919990197268"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:-translate-y-1 hover:shadow-xl hover:shadow-primary/30 transition-all duration-300 pointer-events-auto border border-primary-foreground/20 shimmer"
+              aria-label="Call Us"
+            >
+              <Phone className="h-6 w-6 fill-current" />
+            </a>
 
-          {/* WhatsApp Floating Button (Right) */}
-          <a
-            href="https://wa.me/919990197268"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 pointer-events-auto border border-white/20 shimmer"
-            aria-label="Chat on WhatsApp"
-          >
-            <FaWhatsapp className="h-7 w-7 fill-current" />
-          </a>
+            {/* WhatsApp Floating Button (Right) */}
+            <a
+              href="https://wa.me/919990197268"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white shadow-lg hover:-translate-y-1 hover:shadow-xl hover:shadow-emerald-500/30 transition-all duration-300 pointer-events-auto border border-white/20 shimmer"
+              aria-label="Chat on WhatsApp"
+            >
+              <FaWhatsapp className="h-7 w-7 fill-current" />
+            </a>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

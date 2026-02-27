@@ -1,5 +1,6 @@
 import { Mail, Phone, MapPin } from "lucide-react";
 import logo from "@/assets/logo.png";
+import { Link } from "react-router-dom";
 
 const Footer = () => (
   <footer id="contact" className="bg-[hsl(220,25%,5%)] text-foreground border-top-glow">
@@ -17,19 +18,19 @@ const Footer = () => (
         <div>
           <h4 className="font-semibold text-sm mb-4 uppercase tracking-wider text-foreground">Quick Links</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="#products" className="hover:text-primary transition-colors">Products</a></li>
-            <li><a href="#about" className="hover:text-primary transition-colors">About Us</a></li>
-            <li><a href="#" className="hover:text-primary transition-colors">Bulk Orders</a></li>
-            <li><a href="#" className="hover:text-primary transition-colors">Returns</a></li>
+            <li><a href="/#products" className="hover:text-primary transition-colors">Products</a></li>
+            <li><a href="/#about" className="hover:text-primary transition-colors">About Us</a></li>
+            <li><a href="/#contact" className="hover:text-primary transition-colors">Bulk Orders</a></li>
+            <li><Link to="/faq" className="hover:text-primary transition-colors">Returns</Link></li>
           </ul>
         </div>
         <div>
           <h4 className="font-semibold text-sm mb-4 uppercase tracking-wider text-foreground">Customer Service</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li><a href="#" className="hover:text-primary transition-colors">Shipping Info</a></li>
-            <li><a href="#" className="hover:text-primary transition-colors">Track Order</a></li>
-            <li><a href="#" className="hover:text-primary transition-colors">FAQ</a></li>
-            <li><a href="#" className="hover:text-primary transition-colors">Privacy Policy</a></li>
+            <li><Link to="/shipping" className="hover:text-primary transition-colors">Shipping Info</Link></li>
+            <li><Link to="/track-order" className="hover:text-primary transition-colors">Track Order</Link></li>
+            <li><Link to="/faq" className="hover:text-primary transition-colors">FAQ</Link></li>
+            <li><Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link></li>
           </ul>
         </div>
         <div>
