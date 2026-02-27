@@ -9,12 +9,23 @@ import { db } from "../lib/firebase";
 import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
 import { useAddresses, INDIAN_STATES, type Address } from "@/hooks/useAddresses";
+import { Product, products as initialProducts } from "@/data/products";
 
 // Label icon map
 const labelIcons: Record<string, any> = {
     Home: Home,
     Office: Briefcase,
     Warehouse: Building2,
+};
+
+// Helper to fix stringified local Vite paths
+const resolveImage = (imgOrProduct: string | Product, id?: number, name?: string) => {
+    let imgPath = typeof imgOrProduct === "string" ? imgOrProduct : imgOrProduct.image;
+    if (imgPath && !imgPath.startsWith('http') && !imgPath.startsWith('data:')) {
+        const localMatch = initialProducts.find(p => p.id === id || p.name === name);
+        if (localMatch) imgPath = localMatch.image;
+    }
+    return imgPath;
 };
 
 const emptyForm = {
@@ -177,7 +188,7 @@ const Checkout = () => {
                     name: item.product.name,
                     price: item.product.price,
                     quantity: item.quantity,
-                    image: item.product.image,
+                    image: resolveImage(item.product.image, item.product.id, item.product.name),
                 })),
                 totalAmount: grandTotal,
                 subtotal: cartTotal,
@@ -277,8 +288,8 @@ const Checkout = () => {
                                                 key={addr.id}
                                                 onClick={() => setSelectedAddressId(addr.id)}
                                                 className={`relative rounded-xl p-4 cursor-pointer transition-all duration-200 border ${isSelected
-                                                        ? "border-primary bg-primary/5 glow-blue"
-                                                        : "border-border hover:border-primary/30 hover:bg-muted/30"
+                                                    ? "border-primary bg-primary/5 glow-blue"
+                                                    : "border-border hover:border-primary/30 hover:bg-muted/30"
                                                     }`}
                                             >
                                                 <div className="flex items-start gap-3">
@@ -345,8 +356,8 @@ const Checkout = () => {
                                                         type="button"
                                                         onClick={() => setForm({ ...form, label })}
                                                         className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold border transition-all ${form.label === label
-                                                                ? "border-primary bg-primary/10 text-primary"
-                                                                : "border-border text-muted-foreground hover:border-primary/30"
+                                                            ? "border-primary bg-primary/10 text-primary"
+                                                            : "border-border text-muted-foreground hover:border-primary/30"
                                                             }`}
                                                     >
                                                         <Ic className="h-3.5 w-3.5" /> {label}
@@ -452,10 +463,11 @@ const Checkout = () => {
 
                             {/* Items */}
                             <div className="p-6 space-y-4 max-h-[40vh] overflow-y-auto">
+
                                 {cart.map((item) => (
                                     <div key={item.product.id} className="flex gap-3">
                                         <img
-                                            src={item.product.image}
+                                            src={resolveImage(item.product.image, item.product.id, item.product.name)}
                                             alt={item.product.name}
                                             className="h-16 w-16 rounded-lg object-cover flex-shrink-0"
                                         />

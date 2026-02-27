@@ -1,6 +1,6 @@
 import { X, Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import type { Product } from "@/data/products";
+import { Product, products as initialProducts } from "@/data/products";
 
 export interface CartItem {
   product: Product;
@@ -15,6 +15,16 @@ interface CartDrawerProps {
   onRemove: (productId: number | string) => void;
   onClearCart?: () => void;
 }
+
+// Helper to fix stringified local Vite paths
+const resolveImage = (product: Product) => {
+  let img = product.image;
+  if (img && !img.startsWith('http') && !img.startsWith('data:')) {
+    const localMatch = initialProducts.find(p => p.id === product.id || p.name === product.name);
+    if (localMatch) img = localMatch.image;
+  }
+  return img;
+};
 
 const CartDrawer = ({ open, onClose, items, onUpdateQty, onRemove, onClearCart }: CartDrawerProps) => {
   const navigate = useNavigate();
@@ -60,7 +70,7 @@ const CartDrawer = ({ open, onClose, items, onUpdateQty, onRemove, onClearCart }
             <div className="space-y-4">
               {items.map((item) => (
                 <div key={item.product.id} className="flex gap-4 glass rounded-xl p-3 border-glow">
-                  <img src={item.product.image} alt={item.product.name} className="h-20 w-20 rounded-lg object-cover" />
+                  <img src={resolveImage(item.product)} alt={item.product.name} className="h-20 w-20 rounded-lg object-cover" />
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-medium text-foreground truncate">{item.product.name}</h4>
                     <p className="text-sm font-bold text-primary mt-1">₹{item.product.price}</p>
