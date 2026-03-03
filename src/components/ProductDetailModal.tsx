@@ -81,10 +81,15 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
                     <input
                       type="number"
                       min="50"
-                      value={qty >= 50 && ![50, 100, 200].includes(qty) ? qty : (qty < 50 ? 50 : "")}
+                      value={![50, 100, 200].includes(qty) || qty === 0 ? (qty === 0 ? "" : qty) : ""}
                       onChange={(e) => {
-                        const val = parseInt(e.target.value);
-                        if (!isNaN(val)) setQty(val);
+                        const val = e.target.value;
+                        if (val === "") {
+                          setQty(0);
+                        } else {
+                          const num = parseInt(val);
+                          if (!isNaN(num)) setQty(num);
+                        }
                       }}
                       onBlur={() => {
                         if (qty < 50) setQty(50);

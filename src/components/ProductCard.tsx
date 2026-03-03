@@ -78,15 +78,20 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
               <input
                 type="number"
                 min="50"
-                value={qty >= 50 && ![50, 100, 200].includes(qty) ? qty : (qty < 50 ? 50 : "")}
+                value={![50, 100, 200].includes(qty) || qty === 0 ? (qty === 0 ? "" : qty) : ""}
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value);
-                  if (!isNaN(val)) setQty(val);
+                  const val = e.target.value;
+                  if (val === "") {
+                    setQty(0);
+                  } else {
+                    const num = parseInt(val);
+                    if (!isNaN(num)) setQty(num);
+                  }
                 }}
                 onBlur={() => { if (qty < 50) setQty(50); }}
                 placeholder="Custom"
-                className={`w-14 sm:w-16 px-1.5 py-1 text-xs font-semibold rounded border bg-muted/40 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all ${![50, 100, 200].includes(qty) && qty >= 50 ? "border-primary bg-primary/10 text-primary" : "border-border"
+                className={`w-14 sm:w-16 px-1.5 py-1 text-sm font-semibold rounded border bg-muted/40 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all ${![50, 100, 200].includes(qty) && qty >= 50 ? "border-primary bg-primary/10 text-primary" : "border-border"
                   }`}
               />
             </div>
