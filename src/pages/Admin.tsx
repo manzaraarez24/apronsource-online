@@ -5,7 +5,7 @@ import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { collection, query, orderBy, onSnapshot, addDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { seedProductsToFirestore } from "../data/seedFirestore";
-import { Shield, Package, ShoppingCart, LogOut, Loader2, Database, Plus, Image as ImageIcon } from "lucide-react";
+import { Shield, Package, ShoppingCart, LogOut, Loader2, Database, Plus, Image as ImageIcon, Users } from "lucide-react";
 import { toast } from "sonner";
 import { retailCategories, wholesaleCategories, materials, colors, salesTypes } from "../data/products";
 
@@ -278,6 +278,7 @@ const AdminDashboard = () => {
     const [orders, setOrders] = useState<any[]>([]);
     const [loadingOrders, setLoadingOrders] = useState(true);
     const [seeding, setSeeding] = useState(false);
+    const [activeTab, setActiveTab] = useState<"orders" | "customers" | "products">("orders");
 
     useEffect(() => {
         try {
@@ -296,6 +297,30 @@ const AdminDashboard = () => {
         }
     }, []);
 
+    // Aggregate unique customers from orders
+    const customers = orders.reduce((acc: any[], order) => {
+        const details = order.customerDetails;
+        if (!details || !details.email) return acc;
+
+        const existing = acc.find(c => c.email === details.email);
+        if (existing) {
+            existing.totalSpent += Number(order.totalAmount || 0);
+            existing.orderCount += 1;
+            // Update latest contact info if available
+            if (details.phone) existing.phone = details.phone;
+            if (details.name) existing.name = details.name;
+        } else {
+            acc.push({
+                name: details.name || "Guest",
+                email: details.email,
+                phone: details.phone || "N/A",
+                totalSpent: Number(order.totalAmount || 0),
+                orderCount: 1
+            });
+        }
+        return acc;
+    }, []);
+
     const handleSeed = async () => {
         setSeeding(true);
         const result = await seedProductsToFirestore();
@@ -308,90 +333,188 @@ const AdminDashboard = () => {
 
     return (
         <div className="min-h-screen bg-background text-foreground">
-            <nav className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-10 px-6 py-4 flex items-center justify-between">
+            <nav className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Shield className="h-6 w-6 text-primary" />
                     <h1 className="font-display font-bold text-xl uppercase tracking-widest">Admin Dashboard</h1>
                 </div>
-                <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-                    <LogOut className="h-4 w-4" /> Logout
-                </button>
+                <div className="flex items-center gap-6">
+                    <div className="hidden md:flex items-center gap-1 bg-muted/30 p-1 rounded-xl border border-border">
+                        <button
+                            onClick={() => setActiveTab("orders")}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "orders" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                            Orders
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("customers")}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "customers" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                            Customers
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("products")}
+                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === "products" ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20" : "text-muted-foreground hover:text-foreground"}`}
+                        >
+                            Manage Products
+                        </button>
+                    </div>
+                    <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <LogOut className="h-4 w-4" /> <span className="hidden sm:inline">Logout</span>
+                    </button>
+                </div>
             </nav>
 
             <main className="max-w-7xl mx-auto p-6 space-y-8">
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Mobile Tab Select */}
+                <div className="md:hidden">
+                    <select
+                        value={activeTab}
+                        onChange={(e) => setActiveTab(e.target.value as any)}
+                        className="w-full bg-muted/50 border border-border rounded-xl px-4 py-3 text-foreground"
+                    >
+                        <option value="orders">Orders</option>
+                        <option value="customers">Customers</option>
+                        <option value="products">Products</option>
+                    </select>
+                </div>
+
+                <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="glass p-6 rounded-2xl border-glow flex items-start justify-between">
                         <div>
                             <p className="text-muted-foreground mb-1 flex items-center gap-2"><ShoppingCart className="h-4 w-4" /> Total Orders</p>
                             <h3 className="text-3xl font-display font-bold">{loadingOrders ? "..." : orders.length}</h3>
                         </div>
                     </div>
+                    <div className="glass p-6 rounded-2xl border-glow flex items-start justify-between">
+                        <div>
+                            <p className="text-muted-foreground mb-1 flex items-center gap-2"><Users className="h-4 w-4" /> Total Customers</p>
+                            <h3 className="text-3xl font-display font-bold">{loadingOrders ? "..." : customers.length}</h3>
+                        </div>
+                    </div>
                     <div className="glass p-6 rounded-2xl border-glow">
-                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-muted-foreground mb-1 flex items-center gap-2"><Database className="h-4 w-4" /> Database Maintenance</p>
-                                <h3 className="text-lg font-display font-bold">Products</h3>
+                                <p className="text-muted-foreground mb-1 flex items-center gap-2"><Database className="h-4 w-4" /> Maintenance</p>
+                                <h3 className="text-lg font-display font-bold underline decoration-primary/30">Database</h3>
                             </div>
                             <button
                                 onClick={handleSeed}
                                 disabled={seeding}
-                                className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
+                                className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 p-2 rounded-lg transition-colors disabled:opacity-50"
+                                title="Auto-Seed Default Products"
                             >
                                 {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-                                Auto-Seed Defaults
                             </button>
                         </div>
                     </div>
                 </section>
 
-                <AddProductForm onProductAdded={() => { }} />
+                {activeTab === "products" && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <AddProductForm onProductAdded={() => { }} />
+                    </div>
+                )}
 
-                <section className="glass rounded-2xl border-glow overflow-hidden">
-                    <div className="p-6 border-b border-border">
-                        <h2 className="text-xl font-display font-bold uppercase tracking-wider">Recent Orders</h2>
-                    </div>
-                    <div className="p-0">
-                        {loadingOrders ? (
-                            <div className="p-8 text-center text-muted-foreground">Loading orders...</div>
-                        ) : orders.length === 0 ? (
-                            <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
-                                <ShoppingCart className="h-12 w-12 mb-4 opacity-20" />
-                                <p>No orders received yet.</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left border-collapse">
-                                    <thead>
-                                        <tr className="bg-muted/30 border-b border-border text-sm text-muted-foreground">
-                                            <th className="px-6 py-4 font-medium uppercase tracking-wider">Order ID</th>
-                                            <th className="px-6 py-4 font-medium uppercase tracking-wider">Date</th>
-                                            <th className="px-6 py-4 font-medium uppercase tracking-wider">Customer Info</th>
-                                            <th className="px-6 py-4 font-medium uppercase tracking-wider">Items</th>
-                                            <th className="px-6 py-4 font-medium uppercase tracking-wider text-right">Total</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-border">
-                                        {orders.map((order) => (
-                                            <tr key={order.id} className="hover:bg-muted/20 transition-colors">
-                                                <td className="px-6 py-4 text-sm font-mono text-muted-foreground">{order.id.slice(0, 8)}...</td>
-                                                <td className="px-6 py-4 text-sm">{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'N/A'}</td>
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-medium">{order.customerDetails?.name || 'Guest'}</div>
-                                                    <div className="text-xs text-muted-foreground">{order.customerDetails?.email}</div>
-                                                    <div className="text-xs text-muted-foreground">{order.customerDetails?.phone}</div>
-                                                </td>
-                                                <td className="px-6 py-4 text-sm text-muted-foreground">
-                                                    {order.items?.length || 0} items
-                                                </td>
-                                                <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{order.totalAmount}</td>
+                {activeTab === "orders" && (
+                    <section className="glass rounded-2xl border-glow overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="p-6 border-b border-border flex items-center justify-between bg-muted/10">
+                            <h2 className="text-xl font-display font-bold uppercase tracking-wider flex items-center gap-2">
+                                <ShoppingCart className="h-5 w-5 text-primary" /> Recent Orders
+                            </h2>
+                        </div>
+                        <div className="p-0">
+                            {loadingOrders ? (
+                                <div className="p-8 text-center text-muted-foreground">Loading orders...</div>
+                            ) : orders.length === 0 ? (
+                                <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
+                                    <ShoppingCart className="h-12 w-12 mb-4 opacity-20" />
+                                    <p>No orders received yet.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-muted/30 border-b border-border text-sm text-muted-foreground">
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Order ID</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Date</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Customer</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Items</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider text-right">Total</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        )}
-                    </div>
-                </section>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                            {orders.map((order) => (
+                                                <tr key={order.id} className="hover:bg-muted/20 transition-colors">
+                                                    <td className="px-6 py-4 text-sm font-mono text-muted-foreground">{order.id.slice(0, 8)}...</td>
+                                                    <td className="px-6 py-4 text-sm">{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'N/A'}</td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm font-medium">{order.customerDetails?.name || 'Guest'}</div>
+                                                        <div className="text-xs text-muted-foreground">{order.customerDetails?.email}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-muted-foreground">
+                                                        {order.items?.length || 0} items
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{order.totalAmount}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                )}
+
+                {activeTab === "customers" && (
+                    <section className="glass rounded-2xl border-glow overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="p-6 border-b border-border flex items-center justify-between bg-muted/10">
+                            <h2 className="text-xl font-display font-bold uppercase tracking-wider flex items-center gap-2">
+                                <Users className="h-5 w-5 text-primary" /> Customer List
+                            </h2>
+                        </div>
+                        <div className="p-0">
+                            {loadingOrders ? (
+                                <div className="p-8 text-center text-muted-foreground">Loading customers...</div>
+                            ) : customers.length === 0 ? (
+                                <div className="p-12 text-center text-muted-foreground flex flex-col items-center">
+                                    <Users className="h-12 w-12 mb-4 opacity-20" />
+                                    <p>No customer data found from orders.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left border-collapse">
+                                        <thead>
+                                            <tr className="bg-muted/30 border-b border-border text-sm text-muted-foreground">
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Name</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Contact</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider text-center">Orders</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider text-right">Total Spent</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-border">
+                                            {customers.map((customer, idx) => (
+                                                <tr key={idx} className="hover:bg-muted/20 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm font-bold">{customer.name}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm">{customer.email}</div>
+                                                        <div className="text-xs text-muted-foreground">{customer.phone}</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-center font-medium">
+                                                        {customer.orderCount}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{customer.totalSpent}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+                )}
             </main>
         </div>
     );
