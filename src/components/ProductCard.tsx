@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, ShoppingCart } from "lucide-react";
+import { Star, ShoppingCart, ChevronLeft, ChevronRight } from "lucide-react";
 import type { Product } from "@/data/products";
 
 interface ProductCardProps {
@@ -11,7 +11,25 @@ interface ProductCardProps {
 
 const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }: ProductCardProps) => {
   const [qty, setQty] = useState(product.salesType === "Wholesale" ? 50 : 1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+
+  const images = product.images || [];
+  const currentImage = images.length > 0 ? images[currentImageIndex] : "";
+
+  const nextImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (images.length > 1) {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    }
+  };
+
+  const prevImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (images.length > 1) {
+      setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+    }
+  };
 
   return (
     <div
@@ -19,15 +37,48 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
         }`}
       onClick={() => onViewDetails(product)}
     >
-      {/* Image */}
+      {/* Image with Slideshow */}
       <div className={`relative overflow-hidden bg-muted flex-shrink-0 ${viewMode === "list" ? "w-32 h-32 lg:w-48 lg:h-48" : "w-full aspect-square"
         }`}>
         <img
-          src={product.image}
+          src={currentImage}
           alt={product.name}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
           loading="lazy"
         />
+        
+        {/* Image Navigation Arrows */}
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={prevImage}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={nextImage}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+
+            {/* Image Indicators */}
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+              {images.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setCurrentImageIndex(idx);
+                  }}
+                  className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? "bg-primary w-4" : "bg-white/50 w-1.5 hover:bg-white/70"}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+
         {/* Dark gradient overlay on image */}
         <div className="absolute inset-0 bg-gradient-to-t from-[hsl(220,25%,8%,0.6)] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         {product.badge && (

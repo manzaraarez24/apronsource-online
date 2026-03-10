@@ -18,10 +18,15 @@ export const seedProductsToFirestore = async () => {
             // Create a document with the product ID as the document ID
             const docRef = doc(db, "products", product.id.toString());
 
-            // Save product to Firestore. image is converted to string just in case it's an object from Vite.
+            // Save product to Firestore with new structure
             await setDoc(docRef, {
                 ...product,
-                image: String(product.image)
+                images: product.images || [],
+                videos: product.videos || [],
+                sizes: product.sizes || [],
+                status: product.status || "active",
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
             });
             count++;
         }

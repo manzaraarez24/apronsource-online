@@ -1,4 +1,4 @@
-import { X, Star, ShoppingCart, Minus, Plus } from "lucide-react";
+import { X, Star, ShoppingCart, Minus, Plus, ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { useState, useEffect } from "react";
 import type { Product } from "@/data/products";
 
@@ -10,17 +10,36 @@ interface ProductDetailModalProps {
 
 const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModalProps) => {
   const [qty, setQty] = useState(1);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
 
   // Reset qty when a new product is opened (50 for wholesale, 1 for retail)
   useEffect(() => {
     if (product) {
       setQty(product.salesType === "Wholesale" ? 50 : 1);
+      setCurrentImageIndex(0);
     }
   }, [product]);
 
   if (!product) return null;
 
+  const images = product.images || [];
+  const videos = product.videos || [];
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % images.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + images.length) % images.length);
+  };
+
+  const handleVideoClick = (videoUrl: string) => {
+    setSelectedVideo(videoUrl);
+    setShowVideoModal(true);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -31,8 +50,51 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
         </button>
 
         <div className="grid md:grid-cols-2 gap-0">
-          <div className="aspect-square bg-muted rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none overflow-hidden">
-            <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
+          {/* Image Slideshow Section */}
+          <div className="aspect-square bg-muted rounded-t-3xl md:rounded-l-3xl md:rounded-tr-none overflow-hidden relative group">
+            {images.length > 0 ? (
+              <>
+                <img src={images[currentImageIndex]} alt={product.name} className="h-full w-full object-cover" />
+                
+                {/* Image Navigation */}
+                {images.length > 1 && (
+                  <>
+                    <button
+                      onClick={prevImage}
+                      className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={nextImage}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <ChevronRight className="h-5 w-5" />
+                    </button>
+
+                    {/* Image Indicators */}
+                    <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10">
+                      {images.map((_, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setCurrentImageIndex(idx)}
+                          className={`h-2 rounded-full transition-all ${idx === currentImageIndex ? "bg-primary w-6" : "bg-white/50 w-2 hover:bg-white/70"}`}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Image Counter */}
+                <div className="absolute top-3 right-3 bg-black/50 text-white px-3 py-1 rounded-full text-xs font-medium">
+                  {currentImageIndex + 1} / {images.length}
+                </div>
+              </>
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                No image available
+              </div>
+            )}
           </div>
 
           <div className="p-6 md:p-8 flex flex-col justify-center">
@@ -51,8 +113,50 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
             <div className="space-y-2 mb-6 text-sm">
               <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Material</span><span className="font-medium text-foreground">{product.material}</span></div>
               <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Color</span><span className="font-medium text-foreground">{product.color}</span></div>
+              {product.sizes && product.sizes.length > 0 && (
+                <div className="flex justify-between py-1.5 border-b border-border/50">
+                  <span className="text-muted-foreground">Available Sizes</span>
+                  <span className="font-medium text-foreground">{product.sizes.map(s => s.name).join(", ")}</span>
+                </div>
+              )}
               <div className="flex justify-between py-1.5"><span className="text-muted-foreground">Availability</span><span className={`font-medium ${product.inStock ? "text-emerald-400" : "text-destructive"}`}>{product.inStock ? "In Stock" : "Out of Stock"}</span></div>
             </div>
+
+            {/* Size Chart */}
+            {product.sizes && product.sizes.length > 0 && (
+              <div className="mb-6 p-4 bg-muted/30 rounded-lg">
+                <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">Size Chart</h4>
+                <div className="space-y-2">
+                  {product.sizes.map((size, idx) => (
+                    <div key={idx} className="flex justify-between text-xs">
+                      <span className="font-medium">{size.name}</span>
+                      <span className="text-muted-foreground">{size.length}cm × {size.breadth}cm</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Video Gallery */}
+            {videos.length > 0 && (
+              <div className="mb-6">
+                <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">Product Videos</p>
+                <div className="flex gap-2 flex-wrap">
+                  {videos.map((video, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleVideoClick(video)}
+                      className="relative h-20 w-20 bg-muted rounded-lg overflow-hidden hover:opacity-80 transition-opacity group"
+                    >
+                      <video src={video} className="h-full w-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/50 transition-colors">
+                        <Play className="h-6 w-6 text-white fill-white" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-3xl font-bold text-foreground">₹{product.price}</span>
@@ -122,6 +226,26 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
           </div>
         </div>
       </div>
+
+      {/* Video Modal */}
+      {showVideoModal && selectedVideo && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80">
+          <div className="relative max-w-2xl w-full">
+            <button
+              onClick={() => setShowVideoModal(false)}
+              className="absolute top-4 right-4 z-10 rounded-full bg-white p-2 hover:bg-gray-200 transition-colors"
+            >
+              <X className="h-4 w-4 text-black" />
+            </button>
+            <video
+              src={selectedVideo}
+              controls
+              autoPlay
+              className="w-full rounded-lg"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
