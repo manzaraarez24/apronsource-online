@@ -29,6 +29,7 @@ const Index = () => {
 
   const filteredProducts = useMemo(() => {
     let result = products.filter((p) => {
+      if (p.isRemoved) return false;
       if (p.salesType !== activeTab) return false;
       if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
       if (selectedCategory !== "All" && p.category !== selectedCategory) return false;

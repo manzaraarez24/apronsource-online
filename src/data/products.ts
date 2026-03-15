@@ -7,11 +7,10 @@ import product6 from "@/assets/product-6.jpg";
 import product7 from "@/assets/product-7.jpg";
 import product8 from "@/assets/product-8.jpg";
 
-export interface Size {
-  id: string;
-  name: string;
-  length: number; // in cm
-  breadth: number; // in cm
+export interface ProductSize {
+  label: string;
+  length: string;
+  breadth: string;
 }
 
 export interface Product {
@@ -19,19 +18,20 @@ export interface Product {
   name: string;
   price: number;
   originalPrice: number;
-  images: string[]; // Changed from single image to array
-  videos?: string[]; // New field for videos
+  image?: string; // Keeps for backward compatibility/primary image
+  images: string[]; // Changed to required array
+  videos?: string[];
   category: string;
   material: string;
   color: string;
-  sizes?: Size[]; // New field for sizes
+  sizes?: ProductSize[];
   rating: number;
   reviews: number;
   inStock: boolean;
   salesType: "Wholesale" | "Retail";
   badge?: string;
   description: string;
-  status: "active" | "draft" | "deleted"; // New field for product status
+  status: "active" | "draft" | "deleted";
   createdAt?: number;
   updatedAt?: number;
 }
@@ -238,22 +238,17 @@ export const products: Product[] = [
   }
 ];
 
-// Updated Categories
-export const retailCategories = ["All", "Professional", "Kids", "Premium", "Men", "Women", "Unisex"];
-export const wholesaleCategories = ["All", "Salon", "Economy", "Premium", "Professional", "Men", "Women", "Unisex"];
+export const retailCategories = ["All", "Professional", "Kids", "Premium", "Men", "Women", "Unisex", "Custom"];
+export const wholesaleCategories = ["All", "Salon", "Economy", "Premium", "Professional", "Men", "Women", "Unisex", "Custom"];
 export const salesTypes = ["All", "Retail", "Wholesale"];
-
-// Updated Materials with custom option
-export const materials = ["All", "Polyester", "Cotton", "Polycotton", "Canvas", "PVC", "Rubber coated", "Nylon", "Rayon"];
-
-// Updated Colors with custom option
-export const colors = ["All", "Black", "White", "Blue", "Red", "Yellow", "Green"];
+export const materials = ["All", "Polyester", "Cotton", "Polycotton", "Canvas", "PVC", "Rubber coated", "Nylon", "Rayon", "Custom"];
+export const colors = ["All", "Black", "White", "Blue", "Red", "Yellow", "Green", "Custom"];
 
 // Preset Sizes
-export const presetSizes: Size[] = [
-  { id: "full", name: "Full Size", length: 120, breadth: 80 },
-  { id: "small", name: "Small", length: 90, breadth: 60 },
-  { id: "standard", name: "Standard", length: 100, breadth: 70 },
+export const presetSizes: ProductSize[] = [
+  { label: "Full size", length: "120cm", breadth: "80cm" },
+  { label: "Small", length: "90cm", breadth: "60cm" },
+  { label: "Standard", length: "100cm", breadth: "70cm" },
 ];
 
 export const sortOptions = [
