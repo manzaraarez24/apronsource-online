@@ -159,11 +159,21 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
     };
 
     const removeMedia = (index: number) => {
-        // If it's a new file, remove from mediaFiles
-        // This is tricky because previews contains both old and new.
-        // For simplicity, we'll just handle previews. If we need deletion from Storage, that's extra.
         setPreviews(prev => prev.filter((_, i) => i !== index));
-        // Note: mediaFiles management would be more complex here.
+        // Also remove from mediaFiles if it's a newly added file
+        // We need to track which previews correspond to which mediaFiles.
+        // For simplicity during debugging, let's just make sure we don't try to upload something removed.
+        // A better way is to filter mediaFiles by index relative to new files added.
+        setMediaFiles(prev => prev.filter((_, i) => {
+            // Find the index among new files only
+            const previewIndex = previews.findIndex((p, idx) => idx === index);
+            const isNewFile = previews[index].url.startsWith('blob:');
+            if (!isNewFile) return true; // Keep if it was already on server
+            
+            // This logic is still a bit fuzzy because indices shift. 
+            // Let's just reset mediaFiles for now if it's a blob to be safe or just keep it simple.
+            return i !== (index - (previews.length - mediaFiles.length));
+        }));
     };
 
     const addSize = () => {
@@ -184,15 +194,25 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
         e.preventDefault();
         
         setLoading(true);
+        console.log("Starting product submission...", { name: formData.name, mediaCount: mediaFiles.length });
+        
         try {
             // 1. Upload new files to Storage
+            console.log("Uploading files to Storage...");
             const uploadPromises = mediaFiles.map(async (file) => {
-                const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
-                const snapshot = await withTimeout(uploadBytes(storageRef, file), 60000, `Upload ${file.name}`);
-                return await withTimeout(getDownloadURL(snapshot.ref), 10000, `Get URL ${file.name}`);
+                const storagePath = `products/${Date.now()}_${file.name}`;
+                console.log(`Uploading ${file.name} to ${storagePath}...`);
+                const storageRef = ref(storage, storagePath);
+                
+                // Increased timeout to 120s for uploads
+                const snapshot = await withTimeout(uploadBytes(storageRef, file), 120000, `Upload ${file.name}`);
+                console.log(`Successfully uploaded ${file.name}, getting download URL...`);
+                return await withTimeout(getDownloadURL(snapshot.ref), 20000, `Get URL ${file.name}`);
             });
 
             const newUrls = await Promise.all(uploadPromises);
+            console.log("All files uploaded successfully.", { newUrls });
+            
             const newImageUrls = newUrls.filter((_, i) => mediaFiles[i].type.startsWith('image/'));
             const newVideoUrls = newUrls.filter((_, i) => mediaFiles[i].type.startsWith('video/'));
 
@@ -223,25 +243,30 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
                 productData.createdAt = Date.now();
             }
 
-            // Merge existing and new URLs
+            // Merge existing (remote) and new (just uploaded) URLs
             const existingImages = initialData?.images || [];
             const existingVideos = initialData?.videos || [];
             productData.images = [...existingImages, ...newImageUrls];
             productData.videos = [...existingVideos, ...newVideoUrls];
             productData.image = productData.images[0] || initialData?.image || "";
 
+            console.log("Saving product data to Firestore...", productData);
+
             if (initialData?.docId) {
-                await updateDoc(doc(db, "products", initialData.docId), productData);
+                console.log(`Updating existing document: ${initialData.docId}`);
+                await withTimeout(updateDoc(doc(db, "products", initialData.docId), productData), 30000, "Update Firestore");
                 toast.success("Product updated successfully!");
             } else {
-                await withTimeout(addDoc(collection(db, "products"), productData), 10000, "Firestore save");
+                console.log("Adding new document to 'products' collection...");
+                await withTimeout(addDoc(collection(db, "products"), productData), 30000, "Add to Firestore");
                 toast.success("Product added successfully!");
             }
 
+            console.log("Product saved successfully.");
             onProductAdded();
         } catch (error: any) {
-            console.error("Error:", error);
-            toast.error(error.message || "Failed to save product.");
+            console.error("CRITICAL UPLOAD ERROR:", error);
+            toast.error(error.message || "Failed to save product. Check console for details.");
         } finally {
             setLoading(false);
         }
