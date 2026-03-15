@@ -196,23 +196,54 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
         });
         
         try {
-            // Pre-flight check
             console.log("3. Starting Storage Upload Phase...");
-            const uploadPromises = filesToUpload.map(async (file) => {
-                const storagePath = `products/${Date.now()}_${file.name}`;
-                console.log(`   - Uploading ${file.name} to ${storagePath}...`);
-                const storageRef = ref(storage, storagePath);
-                
-                const snapshot = await withTimeout(uploadBytes(storageRef, file), 120000, `Upload ${file.name}`);
-                console.log(`   - ✅ Uploaded ${file.name}, fetching URL...`);
-                return await withTimeout(getDownloadURL(snapshot.ref), 20000, `Get URL ${file.name}`);
-            });
- 
-            const newUrls = await Promise.all(uploadPromises);
-            console.log("4. Storage Phase Complete.", { newUrls });
+            let newImageUrls: string[] = [];
+            let newVideoUrls: string[] = [];
             
-            const newImageUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('image/'));
-            const newVideoUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('video/'));
+            if (filesToUpload.length > 0) {
+                try {
+                    const uploadPromises = filesToUpload.map(async (file) => {
+                        const storagePath = `products/${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${file.name}`;
+                        console.log(`   - Uploading ${file.name} to ${storagePath}...`);
+                        const storageRef = ref(storage, storagePath);
+                        
+                        const snapshot = await withTimeout(uploadBytes(storageRef, file), 120000, `Upload ${file.name}`);
+                        console.log(`   - ✅ Uploaded ${file.name}, fetching URL...`);
+                        return await withTimeout(getDownloadURL(snapshot.ref), 20000, `Get URL ${file.name}`);
+                    });
+     
+                    const newUrls = await Promise.all(uploadPromises);
+                    console.log("4. Storage Phase Complete.", { newUrls });
+                    
+                    newImageUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('image/'));
+                    newVideoUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('video/'));
+                } catch (storageError: any) {
+                    console.error("⚠️ Storage upload failed:", storageError);
+                    console.log("Firebase Code:", storageError.code);
+                    
+                    // If storage fails due to permissions, still save the product without images
+                    if (storageError.code === 'storage/unauthorized' || storageError.code === 'storage/unauthenticated') {
+                        toast.error(
+                            <div>
+                                <p className="font-bold">⚠️ Image upload blocked by Firebase Storage rules.</p>
+                                <p className="text-xs mt-1">Product will be saved without images. Update your Firebase Storage rules to allow writes.</p>
+                            </div>,
+                            { duration: 8000 }
+                        );
+                    } else {
+                        toast.error(
+                            <div>
+                                <p className="font-bold">⚠️ Image upload failed</p>
+                                <p className="text-xs mt-1">{storageError.message}</p>
+                                <p className="text-xs mt-1">Product will be saved without images.</p>
+                            </div>,
+                            { duration: 8000 }
+                        );
+                    }
+                }
+            } else {
+                console.log("3. No new files to upload, skipping Storage phase.");
+            }
  
             const finalCategory = formData.category === "Custom" ? formData.customCategory : formData.category;
             const finalMaterial = formData.material === "Custom" ? formData.customMaterial : formData.material;
@@ -534,7 +565,14 @@ const ProductList = ({ onEdit }: { onEdit: (product: any) => void }) => {
                     {filteredProducts.map((product) => (
                         <div key={product.docId} className="glass rounded-2xl border-glow overflow-hidden group hover:scale-[1.02] transition-all duration-300">
                             <div className="aspect-square relative flex items-center justify-center bg-muted/10 p-4">
-                                <img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain" />
+                                {(product.image && product.image.length > 0) || (product.images && product.images.length > 0) ? (
+                                    <img src={product.images?.[0] || product.image} alt={product.name} className="max-h-full max-w-full object-contain" />
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                        <ImageIcon className="h-12 w-12 mb-2 opacity-30" />
+                                        <span className="text-xs opacity-50">No Image</span>
+                                    </div>
+                                )}
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
                                     <button onClick={() => onEdit(product)} title="Edit" className="bg-white text-black p-3 rounded-full hover:bg-primary hover:text-white transition-colors">
                                         <Edit className="h-5 w-5" />

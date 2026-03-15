@@ -34,12 +34,11 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
     emblaApi.on("reInit", onSelect);
   }, [emblaApi, onSelect]);
 
-  // Combined Media (Images and Videos)
+  // Combined Media (Images and Videos) — filter out empty strings
   const allMedia = [
-    ...(product?.image ? [product.image] : []),
     ...(product?.images || []),
     ...(product?.videos || [])
-  ].filter((v, i, a) => a.indexOf(v) === i); // Deduplicate
+  ].filter((v, i, a) => v && v.length > 0 && a.indexOf(v) === i); // Remove empty + deduplicate
 
   // Reset qty when a new product is opened (50 for wholesale, 1 for retail)
   useEffect(() => {

@@ -14,8 +14,9 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
 
-  const images = product.images || [];
-  const currentImage = images.length > 0 ? images[currentImageIndex] : "";
+  const images = (product.images || []).filter(img => img && img.length > 0);
+  const PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='%231a1f2e' width='400' height='400'/%3E%3Ctext fill='%234a5568' font-family='sans-serif' font-size='20' text-anchor='middle' x='200' y='200'%3ENo Image%3C/text%3E%3C/svg%3E";
+  const currentImage = images.length > 0 ? images[currentImageIndex] : PLACEHOLDER;
 
   const nextImage = (e: React.MouseEvent) => {
     e.stopPropagation();
