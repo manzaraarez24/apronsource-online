@@ -84,8 +84,6 @@ const AdminLogin = () => {
 // Add/Edit Product Component
 const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () => void, initialData?: any }) => {
     const [loading, setLoading] = useState(false);
-    const [mediaFiles, setMediaFiles] = useState<File[]>([]);
-    const [previews, setPreviews] = useState<{ url: string, type: 'image' | 'video' }[]>([]);
     const [formData, setFormData] = useState({
         name: "",
         price: "",
@@ -101,6 +99,7 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
         badge: "",
         status: "active" as "active" | "draft" | "deleted"
     });
+    const [mediaItems, setMediaItems] = useState<{ id: string, url: string, type: 'image' | 'video', file?: File }[]>([]);
     const [sizes, setSizes] = useState<ProductSize[]>([]);
     const [newSize, setNewSize] = useState({ label: "Standard", customLabel: "", length: "", breadth: "" });
 
@@ -126,9 +125,9 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
             });
             setSizes(initialData.sizes || []);
             
-            const imagPreviews = (initialData.images || []).map((url: string) => ({ url, type: 'image' as const }));
-            const vidPreviews = (initialData.videos || []).map((url: string) => ({ url, type: 'video' as const }));
-            setPreviews([...imagPreviews, ...vidPreviews]);
+            const imagItems = (initialData.images || []).map((url: string) => ({ id: url, url, type: 'image' as const }));
+            const vidItems = (initialData.videos || []).map((url: string) => ({ id: url, url, type: 'video' as const }));
+            setMediaItems([...imagItems, ...vidItems]);
         } else {
             setFormData({
                 name: "", price: "", originalPrice: "", 
@@ -139,8 +138,7 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
                 description: "", badge: "",
                 status: "active"
             });
-            setMediaFiles([]);
-            setPreviews([]);
+            setMediaItems([]);
             setSizes([]);
         }
     }, [initialData, activeCategories]);
@@ -148,32 +146,18 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
     const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
             const files = Array.from(e.target.files);
-            setMediaFiles(prev => [...prev, ...files]);
-            
-            const newPreviews = files.map(file => ({
+            const newItems = files.map(file => ({
+                id: Math.random().toString(36).substr(2, 9),
                 url: URL.createObjectURL(file),
-                type: file.type.startsWith('video/') ? 'video' as const : 'image' as const
+                type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
+                file: file
             }));
-            setPreviews(prev => [...prev, ...newPreviews]);
+            setMediaItems(prev => [...prev, ...newItems]);
         }
     };
-
-    const removeMedia = (index: number) => {
-        setPreviews(prev => prev.filter((_, i) => i !== index));
-        // Also remove from mediaFiles if it's a newly added file
-        // We need to track which previews correspond to which mediaFiles.
-        // For simplicity during debugging, let's just make sure we don't try to upload something removed.
-        // A better way is to filter mediaFiles by index relative to new files added.
-        setMediaFiles(prev => prev.filter((_, i) => {
-            // Find the index among new files only
-            const previewIndex = previews.findIndex((p, idx) => idx === index);
-            const isNewFile = previews[index].url.startsWith('blob:');
-            if (!isNewFile) return true; // Keep if it was already on server
-            
-            // This logic is still a bit fuzzy because indices shift. 
-            // Let's just reset mediaFiles for now if it's a blob to be safe or just keep it simple.
-            return i !== (index - (previews.length - mediaFiles.length));
-        }));
+ 
+    const removeMedia = (id: string) => {
+        setMediaItems(prev => prev.filter(item => item.id !== id));
     };
 
     const addSize = () => {
@@ -194,32 +178,46 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
         e.preventDefault();
         
         setLoading(true);
-        console.log("Starting product submission...", { name: formData.name, mediaCount: mediaFiles.length });
+        console.group("🚀 Product Upload Diagnostics");
+        console.log("1. Current Auth State:", { 
+            loggedIn: !!auth.currentUser, 
+            uid: auth.currentUser?.uid,
+            email: auth.currentUser?.email 
+        });
+ 
+        const filesToUpload = mediaItems.filter(item => item.file).map(item => item.file as File);
+        const existingImages = mediaItems.filter(item => !item.file && item.type === 'image').map(item => item.url);
+        const existingVideos = mediaItems.filter(item => !item.file && item.type === 'video').map(item => item.url);
+ 
+        console.log("2. Form Data Summary:", { 
+            name: formData.name, 
+            newFiles: filesToUpload.length, 
+            existingMedia: existingImages.length + existingVideos.length 
+        });
         
         try {
-            // 1. Upload new files to Storage
-            console.log("Uploading files to Storage...");
-            const uploadPromises = mediaFiles.map(async (file) => {
+            // Pre-flight check
+            console.log("3. Starting Storage Upload Phase...");
+            const uploadPromises = filesToUpload.map(async (file) => {
                 const storagePath = `products/${Date.now()}_${file.name}`;
-                console.log(`Uploading ${file.name} to ${storagePath}...`);
+                console.log(`   - Uploading ${file.name} to ${storagePath}...`);
                 const storageRef = ref(storage, storagePath);
                 
-                // Increased timeout to 120s for uploads
                 const snapshot = await withTimeout(uploadBytes(storageRef, file), 120000, `Upload ${file.name}`);
-                console.log(`Successfully uploaded ${file.name}, getting download URL...`);
+                console.log(`   - ✅ Uploaded ${file.name}, fetching URL...`);
                 return await withTimeout(getDownloadURL(snapshot.ref), 20000, `Get URL ${file.name}`);
             });
-
+ 
             const newUrls = await Promise.all(uploadPromises);
-            console.log("All files uploaded successfully.", { newUrls });
+            console.log("4. Storage Phase Complete.", { newUrls });
             
-            const newImageUrls = newUrls.filter((_, i) => mediaFiles[i].type.startsWith('image/'));
-            const newVideoUrls = newUrls.filter((_, i) => mediaFiles[i].type.startsWith('video/'));
-
+            const newImageUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('image/'));
+            const newVideoUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('video/'));
+ 
             const finalCategory = formData.category === "Custom" ? formData.customCategory : formData.category;
             const finalMaterial = formData.material === "Custom" ? formData.customMaterial : formData.material;
             const finalColor = formData.color === "Custom" ? formData.customColor : formData.color;
-
+ 
             const productData: any = {
                 id: initialData?.id || Date.now(),
                 name: formData.name,
@@ -237,36 +235,46 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
                 inStock: initialData?.inStock ?? true,
                 sizes: sizes,
                 updatedAt: Date.now(),
+                images: [...existingImages, ...newImageUrls],
+                videos: [...existingVideos, ...newVideoUrls],
             };
-
+            productData.image = productData.images[0] || initialData?.image || "";
+ 
             if (!initialData) {
                 productData.createdAt = Date.now();
             }
-
-            // Merge existing (remote) and new (just uploaded) URLs
-            const existingImages = initialData?.images || [];
-            const existingVideos = initialData?.videos || [];
-            productData.images = [...existingImages, ...newImageUrls];
-            productData.videos = [...existingVideos, ...newVideoUrls];
-            productData.image = productData.images[0] || initialData?.image || "";
-
-            console.log("Saving product data to Firestore...", productData);
-
+ 
+            console.log("5. Firestore Save Phase. Data payload:");
+            console.table(productData);
+ 
             if (initialData?.docId) {
-                console.log(`Updating existing document: ${initialData.docId}`);
+                console.log(`   - Updating document: ${initialData.docId}`);
                 await withTimeout(updateDoc(doc(db, "products", initialData.docId), productData), 30000, "Update Firestore");
                 toast.success("Product updated successfully!");
             } else {
-                console.log("Adding new document to 'products' collection...");
+                console.log("   - Adding new document to 'products' collection...");
                 await withTimeout(addDoc(collection(db, "products"), productData), 30000, "Add to Firestore");
                 toast.success("Product added successfully!");
             }
-
-            console.log("Product saved successfully.");
+ 
+            console.log("6. ✅ ALL PHASES SUCCESSFUL.");
+            console.groupEnd();
             onProductAdded();
         } catch (error: any) {
-            console.error("CRITICAL UPLOAD ERROR:", error);
-            toast.error(error.message || "Failed to save product. Check console for details.");
+            console.group("❌ UPLOAD FAILED");
+            console.error("Error Detail:", error);
+            console.log("Firebase Code:", error.code);
+            console.log("Full Message:", error.message);
+            console.groupEnd();
+            console.groupEnd(); // End main group
+            
+            toast.error(
+                <div>
+                    <p className="font-bold">Save Failed!</p>
+                    <p className="text-xs opacity-80">{error.code || "unknown_error"}: {error.message}</p>
+                    <p className="mt-1 text-[10px] underline">Check F12 console for details</p>
+                </div>
+            );
         } finally {
             setLoading(false);
         }
@@ -291,16 +299,16 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
                 <div className="col-span-1 md:col-span-2">
                     <label className="block text-sm font-medium text-muted-foreground mb-2">Product Media (Images & Videos) *</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
-                        {previews.map((preview, index) => (
-                            <div key={index} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted/20 group">
-                                {preview.type === 'image' ? (
-                                    <img src={preview.url} alt="Preview" className="h-full w-full object-cover" />
+                        {mediaItems.map((item, index) => (
+                            <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted/20 group">
+                                {item.type === 'image' ? (
+                                    <img src={item.url} alt="Preview" className="h-full w-full object-cover" />
                                 ) : (
-                                    <video src={preview.url} className="h-full w-full object-cover" />
+                                    <video src={item.url} className="h-full w-full object-cover" />
                                 )}
                                 <button
                                     type="button"
-                                    onClick={() => removeMedia(index)}
+                                    onClick={() => removeMedia(item.id)}
                                     className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                 >
                                     <X className="h-3 w-3" />
