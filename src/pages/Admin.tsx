@@ -82,7 +82,7 @@ const AdminLogin = () => {
 };
 
 // Add/Edit Product Component
-const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () => void, initialData?: any }) => {
+const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAdded: () => void, initialData?: any, resetKey?: number }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: "",
@@ -250,15 +250,30 @@ const AddProductForm = ({ onProductAdded, initialData }: { onProductAdded: () =>
             if (initialData?.docId) {
                 console.log(`   - Updating document: ${initialData.docId}`);
                 await withTimeout(updateDoc(doc(db, "products", initialData.docId), productData), 30000, "Update Firestore");
-                toast.success("Product updated successfully!");
+                toast.success("✅ Product updated successfully!", { duration: 5000, style: { background: '#10b981', color: 'white', fontWeight: 700, fontSize: '16px' } });
             } else {
                 console.log("   - Adding new document to 'products' collection...");
                 await withTimeout(addDoc(collection(db, "products"), productData), 30000, "Add to Firestore");
-                toast.success("Product added successfully!");
+                toast.success("✅ Product uploaded successfully!", { duration: 5000, style: { background: '#10b981', color: 'white', fontWeight: 700, fontSize: '16px' } });
             }
  
             console.log("6. ✅ ALL PHASES SUCCESSFUL.");
             console.groupEnd();
+            
+            // Reset form fields for new product adds
+            if (!initialData) {
+                setFormData({
+                    name: "", price: "", originalPrice: "",
+                    category: activeCategories[1] || activeCategories[0], customCategory: "",
+                    material: materials[1], customMaterial: "",
+                    color: colors[1], customColor: "",
+                    salesType: "Retail",
+                    description: "", badge: "",
+                    status: "active"
+                });
+                setMediaItems([]);
+                setSizes([]);
+            }
             onProductAdded();
         } catch (error: any) {
             console.group("❌ UPLOAD FAILED");
@@ -566,6 +581,7 @@ const AdminDashboard = () => {
     const [seeding, setSeeding] = useState(false);
     const [activeTab, setActiveTab] = useState<"orders" | "customers" | "products">("orders");
     const [editingProduct, setEditingProduct] = useState<any | null>(null);
+    const [formResetKey, setFormResetKey] = useState(0);
 
     const handleEditProduct = (product: any) => {
         setEditingProduct(product);
@@ -690,8 +706,10 @@ const AdminDashboard = () => {
                 {activeTab === "products" && (
                     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
                         <AddProductForm 
-                            onProductAdded={() => { setEditingProduct(null); }} 
+                            key={formResetKey}
+                            onProductAdded={() => { setEditingProduct(null); setFormResetKey(k => k + 1); }} 
                             initialData={editingProduct}
+                            resetKey={formResetKey}
                         />
                         <div className="border-t border-border pt-12">
                             <ProductList onEdit={handleEditProduct} />
