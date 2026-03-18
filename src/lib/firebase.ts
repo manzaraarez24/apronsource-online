@@ -9,7 +9,7 @@ const firebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyDi2Lpoitnneq-W38_KYRxwjaKFE22kLwg",
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "zarrks.firebaseapp.com",
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "zarrks",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "zarrks.firebasestorage.app",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "zarrks.appspot.com",
     messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "96301860805",
     appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:96301860805:web:bcd55b47f03529f9c8edac",
 };
