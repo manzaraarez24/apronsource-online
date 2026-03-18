@@ -7,7 +7,17 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { seedProductsToFirestore } from "../data/seedFirestore";
 import { Shield, Package, ShoppingCart, LogOut, Loader2, Database, Plus, Image as ImageIcon, Users, X, Edit, Trash2, RefreshCw, Video, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import { retailCategories, wholesaleCategories, materials, colors, presetSizes, type Product, type ProductSize } from "../data/products";
+import { 
+    retailCategories, 
+    wholesaleCategories, 
+    materials, 
+    colors, 
+    presetSizes, 
+    applicableOptions,
+    closureTypeOptions,
+    type Product, 
+    type ProductSize 
+} from "../data/products";
 
 // Helper: timeout wrapper
 const withTimeout = <T,>(promise: Promise<T>, ms: number, label: string): Promise<T> => {
@@ -95,6 +105,12 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
         color: "",
         customColor: "",
         salesType: "Retail",
+        applicable: "",
+        customApplicable: "",
+        closureType: "",
+        customClosureType: "",
+        gsm: "",
+        weight: "",
         description: "",
         badge: "",
         status: "active" as "active" | "draft" | "deleted"
@@ -119,6 +135,12 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 color: colors.includes(initialData.color) ? initialData.color : "Custom",
                 customColor: colors.includes(initialData.color) ? "" : initialData.color,
                 salesType: initialData.salesType || "Retail",
+                applicable: applicableOptions.includes(initialData.applicable) ? initialData.applicable : (initialData.applicable ? "Custom" : ""),
+                customApplicable: applicableOptions.includes(initialData.applicable) || !initialData.applicable ? "" : initialData.applicable,
+                closureType: closureTypeOptions.includes(initialData.closureType) ? initialData.closureType : (initialData.closureType ? "Custom" : ""),
+                customClosureType: closureTypeOptions.includes(initialData.closureType) || !initialData.closureType ? "" : initialData.closureType,
+                gsm: initialData.gsm?.toString() || "",
+                weight: initialData.weight || "",
                 description: initialData.description || "",
                 badge: initialData.badge || "",
                 status: initialData.status || "active"
@@ -135,6 +157,9 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 material: materials[1], customMaterial: "",
                 color: colors[1], customColor: "",
                 salesType: "Retail",
+                applicable: "", customApplicable: "",
+                closureType: "", customClosureType: "",
+                gsm: "", weight: "",
                 description: "", badge: "",
                 status: "active"
             });
@@ -248,6 +273,8 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
             const finalCategory = formData.category === "Custom" ? formData.customCategory : formData.category;
             const finalMaterial = formData.material === "Custom" ? formData.customMaterial : formData.material;
             const finalColor = formData.color === "Custom" ? formData.customColor : formData.color;
+            const finalApplicable = formData.applicable === "Custom" ? formData.customApplicable : formData.applicable;
+            const finalClosureType = formData.closureType === "Custom" ? formData.customClosureType : formData.closureType;
  
             const productData: any = {
                 id: initialData?.id || Date.now(),
@@ -258,6 +285,10 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 material: finalMaterial,
                 color: finalColor,
                 salesType: formData.salesType,
+                applicable: finalApplicable || "",
+                closureType: finalClosureType || "",
+                gsm: formData.gsm,
+                weight: formData.weight,
                 description: formData.description,
                 badge: formData.badge,
                 status: formData.status,
@@ -299,6 +330,9 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                     material: materials[1], customMaterial: "",
                     color: colors[1], customColor: "",
                     salesType: "Retail",
+                    applicable: "", customApplicable: "",
+                    closureType: "", customClosureType: "",
+                    gsm: "", weight: "",
                     description: "", badge: "",
                     status: "active"
                 });
@@ -423,6 +457,40 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                             {formData.color === "Custom" && (
                                 <input type="text" placeholder="Type Color" required value={formData.customColor} onChange={e => setFormData({ ...formData, customColor: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
                             )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* New Attributes Section */}
+                <div className="col-span-1 md:col-span-2 space-y-4">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="col-span-2">
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Applicable For</label>
+                            <select value={formData.applicable} onChange={e => setFormData({ ...formData, applicable: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary mb-2">
+                                <option value="">Select applicable...</option>
+                                {applicableOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                            {formData.applicable === "Custom" && (
+                                <input type="text" placeholder="Type custom value" required value={formData.customApplicable} onChange={e => setFormData({ ...formData, customApplicable: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
+                            )}
+                        </div>
+                        <div className="col-span-2">
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Closure Type</label>
+                            <select value={formData.closureType} onChange={e => setFormData({ ...formData, closureType: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary mb-2">
+                                <option value="">Select closure type...</option>
+                                {closureTypeOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                            {formData.closureType === "Custom" && (
+                                <input type="text" placeholder="Type custom value" required value={formData.customClosureType} onChange={e => setFormData({ ...formData, customClosureType: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
+                            )}
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">GSM</label>
+                            <input type="text" placeholder="e.g. 200" value={formData.gsm} onChange={e => setFormData({ ...formData, gsm: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Weight</label>
+                            <input type="text" placeholder="e.g. 350g" value={formData.weight} onChange={e => setFormData({ ...formData, weight: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
                         </div>
                     </div>
                 </div>
@@ -620,6 +688,7 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState<"orders" | "customers" | "products">("orders");
     const [editingProduct, setEditingProduct] = useState<any | null>(null);
     const [formResetKey, setFormResetKey] = useState(0);
+    const [removingDemos, setRemovingDemos] = useState(false);
 
     const handleEditProduct = (product: any) => {
         setEditingProduct(product);
@@ -671,6 +740,30 @@ const AdminDashboard = () => {
         if (result.success) toast.success(result.message);
         else toast.error(result.message);
         setSeeding(false);
+    };
+
+    const handleRemoveDemos = async () => {
+        if (!window.confirm("Are you sure you want to remove all 12 demo products? This cannot be undone.")) return;
+        setRemovingDemos(true);
+        try {
+            // Delete products 1 through 12
+            let deletedCount = 0;
+            for (let i = 1; i <= 12; i++) {
+                try {
+                    const docRef = doc(db, "products", i.toString());
+                    await updateDoc(docRef, { status: "deleted", updatedAt: Date.now() });
+                    deletedCount++;
+                } catch (e) {
+                    // Ignore errors for individual docs that might not exist
+                }
+            }
+            toast.success(`Successfully moved ${deletedCount} demo products to bin.`);
+        } catch (error) {
+            console.error("Error removing demos:", error);
+            toast.error("Failed to remove demo products.");
+        } finally {
+            setRemovingDemos(false);
+        }
     };
 
     const handleLogout = () => signOut(auth);
@@ -727,16 +820,26 @@ const AdminDashboard = () => {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-muted-foreground mb-1 flex items-center gap-2"><Database className="h-4 w-4" /> Maintenance</p>
-                                <h3 className="text-lg font-display font-bold underline decoration-primary/30">Database</h3>
+                                <h3 className="text-lg font-display font-bold underline decoration-primary/30 mb-2">Database</h3>
                             </div>
-                            <button
-                                onClick={handleSeed}
-                                disabled={seeding}
-                                className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 p-2 rounded-lg transition-colors disabled:opacity-50"
-                                title="Auto-Seed Default Products"
-                            >
-                                {seeding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Package className="h-4 w-4" />}
-                            </button>
+                            <div className="flex flex-col gap-2">
+                                <button
+                                    onClick={handleSeed}
+                                    disabled={seeding || removingDemos}
+                                    className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 text-xs font-bold flex items-center gap-2 justify-center"
+                                    title="Auto-Seed Default Products"
+                                >
+                                    {seeding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Package className="h-3 w-3" />} Add Demos
+                                </button>
+                                <button
+                                    onClick={handleRemoveDemos}
+                                    disabled={seeding || removingDemos}
+                                    className="bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 text-xs font-bold flex items-center gap-2 justify-center"
+                                    title="Remove Demo Products"
+                                >
+                                    {removingDemos ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Remove Demos
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </section>

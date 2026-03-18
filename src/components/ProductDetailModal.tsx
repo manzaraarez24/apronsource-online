@@ -90,9 +90,16 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
                     )}
                   </div>
                 )) : (
-                  <div className="relative flex-[0_0_100%] min-w-0 h-full flex items-center justify-center bg-muted/30">
-                    {product.image && <img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain" />}
-                  </div>
+                    <div className="relative flex-[0_0_100%] min-w-0 h-full flex items-center justify-center bg-muted/30 p-8">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="max-h-full max-w-full object-contain drop-shadow-2xl" />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-muted-foreground/30">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+                          <span className="mt-2 text-sm">No Image Available</span>
+                        </div>
+                      )}
+                    </div>
                 )}
               </div>
             </div>
@@ -138,10 +145,24 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
             <p className="text-sm text-muted-foreground mb-6 leading-relaxed">{product.description}</p>
 
             <div className="space-y-2 mb-6 text-sm">
-              <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Material</span><span className="font-medium text-foreground">{product.material}</span></div>
-              <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Color</span><span className="font-medium text-foreground">{product.color}</span></div>
-              <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Sales Type</span><span className="font-medium text-foreground">{product.salesType}</span></div>
-              <div className="flex justify-between py-1.5"><span className="text-muted-foreground">Availability</span><span className={`font-medium ${product.inStock ? "text-emerald-400" : "text-destructive"}`}>{product.inStock ? "In Stock" : "Out of Stock"}</span></div>
+              <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Material</span><span className="font-medium text-foreground text-right">{product.material}</span></div>
+              <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Color</span><span className="font-medium text-foreground text-right">{product.color}</span></div>
+              
+              {product.applicable && (
+                <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Applicable For</span><span className="font-medium text-foreground text-right">{product.applicable}</span></div>
+              )}
+              {product.closureType && (
+                <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Closure</span><span className="font-medium text-foreground text-right">{product.closureType}</span></div>
+              )}
+              {product.gsm && (
+                <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">GSM</span><span className="font-medium text-foreground text-right">{product.gsm}</span></div>
+              )}
+              {product.weight && (
+                <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Weight</span><span className="font-medium text-foreground text-right">{product.weight}</span></div>
+              )}
+
+              <div className="flex justify-between py-1.5 border-b border-border/50"><span className="text-muted-foreground">Sales Type</span><span className="font-medium text-foreground text-right">{product.salesType}</span></div>
+              <div className="flex justify-between py-1.5"><span className="text-muted-foreground">Availability</span><span className={`font-medium text-right ${product.inStock ? "text-emerald-400" : "text-destructive"}`}>{product.inStock ? "In Stock" : "Out of Stock"}</span></div>
             </div>
 
             <div className="flex items-baseline gap-3 mb-6">

@@ -34,6 +34,10 @@ export interface Product {
   status: "active" | "draft" | "deleted";
   createdAt?: number;
   updatedAt?: number;
+  applicable?: string; // Maps to categories requested like: Salon & spa, Hospital, etc.
+  closureType?: string; // Adjustable neck, Velcro, etc.
+  gsm?: string | number;
+  weight?: string;
 }
 
 export const products: Product[] = [
@@ -243,6 +247,10 @@ export const wholesaleCategories = ["All", "Salon", "Economy", "Premium", "Profe
 export const salesTypes = ["All", "Retail", "Wholesale"];
 export const materials = ["All", "Polyester", "Cotton", "Polycotton", "Canvas", "PVC", "Rubber coated", "Nylon", "Rayon", "Custom"];
 export const colors = ["All", "Black", "White", "Blue", "Red", "Yellow", "Green", "Custom"];
+
+export const applicableOptions = ["Salon & spa", "Beauty & care", "Hotel", "Hospital", "School", "Custom"];
+export const closureTypeOptions = ["Adjustable neck", "Drawstring", "Velcro", "Snap hook closure", "Custom"];
+
 
 // Preset Sizes
 export const presetSizes: ProductSize[] = [
