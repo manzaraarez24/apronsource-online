@@ -7,16 +7,16 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { seedProductsToFirestore } from "../data/seedFirestore";
 import { Shield, Package, ShoppingCart, LogOut, Loader2, Database, Plus, Image as ImageIcon, Users, X, Edit, Trash2, RefreshCw, Video, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
-import { 
-    retailCategories, 
-    wholesaleCategories, 
-    materials, 
-    colors, 
-    presetSizes, 
+import {
+    retailCategories,
+    wholesaleCategories,
+    materials,
+    colors,
+    presetSizes,
     applicableOptions,
     closureTypeOptions,
-    type Product, 
-    type ProductSize 
+    type Product,
+    type ProductSize
 } from "../data/products";
 
 // Helper: timeout wrapper
@@ -94,6 +94,7 @@ const AdminLogin = () => {
 // Add/Edit Product Component
 const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAdded: () => void, initialData?: any, resetKey?: number }) => {
     const [loading, setLoading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<string>("");
     const [formData, setFormData] = useState({
         name: "",
         price: "",
@@ -146,12 +147,12 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 status: initialData.status || "active"
             });
             setSizes(initialData.sizes || []);
-            
+
             const imagItems = (initialData.images || []).map((url: string) => ({ id: url, url, type: 'image' as const }));
             setMediaItems(imagItems);
         } else {
             setFormData({
-                name: "", price: "", originalPrice: "", 
+                name: "", price: "", originalPrice: "",
                 category: activeCategories[1] || activeCategories[0], customCategory: "",
                 material: materials[1], customMaterial: "",
                 color: colors[1], customColor: "",
@@ -179,7 +180,7 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
             setMediaItems(prev => [...prev, ...newItems]);
         }
     };
- 
+
     const removeMedia = (id: string) => {
         setMediaItems(prev => prev.filter(item => item.id !== id));
     };
@@ -200,80 +201,44 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
 
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
         setLoading(true);
-        console.group("🚀 Product Upload Diagnostics");
-        console.log("1. Current Auth State:", { 
-            loggedIn: !!auth.currentUser, 
-            uid: auth.currentUser?.uid,
-            email: auth.currentUser?.email 
-        });
- 
+        setUploadProgress("");
+
         const filesToUpload = mediaItems.filter(item => item.file).map(item => item.file as File);
         const existingImages = mediaItems.filter(item => !item.file).map(item => item.url);
- 
-        console.log("2. Form Data Summary:", { 
-            name: formData.name, 
-            newFiles: filesToUpload.length, 
-            existingMedia: existingImages.length 
-        });
-        
+
         try {
-            console.log("3. Starting Storage Upload Phase...");
             let newImageUrls: string[] = [];
-            
+
+            // ── Upload images to Firebase Storage ──────────────────────────
             if (filesToUpload.length > 0) {
-                try {
-                    const uploadPromises = filesToUpload.map(async (file) => {
-                        const storagePath = `products/${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-                        console.log(`   - Uploading ${file.name} to ${storagePath}...`);
-                        const storageRef = ref(storage, storagePath);
-                        
-                        // We remove the 120s timeout wrapper to see if Firebase can throw a native error immediately.
-                        // If it hangs, it means CORS is missing on the bucket or the bucket URL is totally invalid.
-                        const snapshot = await uploadBytes(storageRef, file);
-                        console.log(`   - ✅ Uploaded ${file.name}, fetching URL...`);
-                        return await getDownloadURL(snapshot.ref);
-                    });
-     
-                    const newUrls = await Promise.all(uploadPromises);
-                    console.log("4. Storage Phase Complete.", { newUrls });
-                    
-                    newImageUrls = newUrls;
-                } catch (storageError: any) {
-                    console.error("⚠️ Storage upload failed:", storageError);
-                    console.log("Firebase Code:", storageError.code);
-                    
-                    // If storage fails due to permissions, still save the product without images
-                    if (storageError.code === 'storage/unauthorized' || storageError.code === 'storage/unauthenticated') {
-                        toast.error(
-                            <div>
-                                <p className="font-bold">⚠️ Image upload blocked by Firebase Storage rules.</p>
-                                <p className="text-xs mt-1">Product will be saved without images. Update your Firebase Storage rules to allow writes.</p>
-                            </div>,
-                            { duration: 8000 }
-                        );
-                    } else {
-                        toast.error(
-                            <div>
-                                <p className="font-bold">⚠️ Image upload failed</p>
-                                <p className="text-xs mt-1">{storageError.message}</p>
-                                <p className="text-xs mt-1">Product will be saved without images.</p>
-                            </div>,
-                            { duration: 8000 }
-                        );
-                    }
-                }
-            } else {
-                console.log("3. No new files to upload, skipping Storage phase.");
+                setUploadProgress(`Uploading ${filesToUpload.length} image(s)...`);
+
+                const uploadPromises = filesToUpload.map(async (file, index) => {
+                    const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                    const storagePath = `products/${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${safeFileName}`;
+                    const storageRef = ref(storage, storagePath);
+
+                    const snapshot = await uploadBytes(storageRef, file);
+                    const downloadUrl = await getDownloadURL(snapshot.ref);
+                    setUploadProgress(`Uploaded ${index + 1} of ${filesToUpload.length} image(s)...`);
+                    return downloadUrl;
+                });
+
+                // If ANY upload fails, this will throw and stop execution — no silent failures
+                newImageUrls = await Promise.all(uploadPromises);
+                setUploadProgress("Images uploaded! Saving product...");
             }
- 
+
+            // ── Build product data ──────────────────────────────────────────
             const finalCategory = formData.category === "Custom" ? formData.customCategory : formData.category;
             const finalMaterial = formData.material === "Custom" ? formData.customMaterial : formData.material;
             const finalColor = formData.color === "Custom" ? formData.customColor : formData.color;
             const finalApplicable = formData.applicable === "Custom" ? formData.customApplicable : formData.applicable;
             const finalClosureType = formData.closureType === "Custom" ? formData.customClosureType : formData.closureType;
- 
+
+            const allImages = [...existingImages, ...newImageUrls];
+
             const productData: any = {
                 id: initialData?.id || Date.now(),
                 name: formData.name,
@@ -295,31 +260,30 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 inStock: initialData?.inStock ?? true,
                 sizes: sizes,
                 updatedAt: Date.now(),
-                images: [...existingImages, ...newImageUrls],
+                images: allImages,
+                image: allImages[0] || initialData?.image || "",
             };
-            productData.image = productData.images[0] || initialData?.image || "";
- 
+
             if (!initialData) {
                 productData.createdAt = Date.now();
             }
- 
-            console.log("5. Firestore Save Phase. Data payload:");
-            console.table(productData);
- 
+
+            // ── Save to Firestore ───────────────────────────────────────────
             if (initialData?.docId) {
-                console.log(`   - Updating document: ${initialData.docId}`);
                 await withTimeout(updateDoc(doc(db, "products", initialData.docId), productData), 30000, "Update Firestore");
-                toast.success("✅ Product updated successfully!", { duration: 5000, style: { background: '#10b981', color: 'white', fontWeight: 700, fontSize: '16px' } });
+                toast.success("✅ Product updated successfully!", {
+                    duration: 5000,
+                    style: { background: '#10b981', color: 'white', fontWeight: 700 }
+                });
             } else {
-                console.log("   - Adding new document to 'products' collection...");
                 await withTimeout(addDoc(collection(db, "products"), productData), 30000, "Add to Firestore");
-                toast.success("✅ Product uploaded successfully!", { duration: 5000, style: { background: '#10b981', color: 'white', fontWeight: 700, fontSize: '16px' } });
+                toast.success("✅ Product uploaded successfully!", {
+                    duration: 5000,
+                    style: { background: '#10b981', color: 'white', fontWeight: 700 }
+                });
             }
- 
-            console.log("6. ✅ ALL PHASES SUCCESSFUL.");
-            console.groupEnd();
-            
-            // Reset form fields for new product adds
+
+            // ── Reset form on new product add ───────────────────────────────
             if (!initialData) {
                 setFormData({
                     name: "", price: "", originalPrice: "",
@@ -336,22 +300,34 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 setMediaItems([]);
                 setSizes([]);
             }
+
+            setUploadProgress("");
             onProductAdded();
+
         } catch (error: any) {
-            console.group("❌ UPLOAD FAILED");
-            console.error("Error Detail:", error);
-            console.log("Firebase Code:", error.code);
-            console.log("Full Message:", error.message);
-            console.groupEnd();
-            console.groupEnd(); // End main group
-            
-            toast.error(
-                <div>
-                    <p className="font-bold">Save Failed!</p>
-                    <p className="text-xs opacity-80">{error.code || "unknown_error"}: {error.message}</p>
-                    <p className="mt-1 text-[10px] underline">Check F12 console for details</p>
-                </div>
-            );
+            console.error("Upload failed:", error);
+            setUploadProgress("");
+
+            // Specific, actionable error messages instead of silent failures
+            if (error.code === 'storage/unauthorized' || error.code === 'storage/unauthenticated') {
+                toast.error(
+                    "Image upload blocked by Firebase Storage rules. Make sure you're logged in and your Storage rules allow authenticated writes.",
+                    { duration: 10000 }
+                );
+            } else if (error.code === 'storage/unknown' || error.message?.includes('CORS') || error.message?.includes('bucket')) {
+                toast.error(
+                    "Image upload failed — possible wrong storage bucket name. Check that storageBucket in firebase.ts matches your Firebase console (Project Settings → General).",
+                    { duration: 10000 }
+                );
+            } else if (error.code === 'storage/canceled') {
+                toast.error("Upload was cancelled. Please try again.");
+            } else if (error.code?.startsWith('storage/')) {
+                toast.error(`Storage error (${error.code}): ${error.message}`, { duration: 8000 });
+            } else if (error.message?.includes('timed out')) {
+                toast.error("Upload timed out. Check your internet connection and try again.");
+            } else {
+                toast.error(`Failed to save product: ${error.message || "Unknown error"}. Check browser console for details.`);
+            }
         } finally {
             setLoading(false);
         }
@@ -378,6 +354,11 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                         {mediaItems.map((item, index) => (
                             <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted/20 group">
                                 <img src={item.url} alt="Preview" className="h-full w-full object-cover" />
+                                {item.file && (
+                                    <div className="absolute bottom-1 left-1 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                        NEW
+                                    </div>
+                                )}
                                 <button
                                     type="button"
                                     onClick={() => removeMedia(item.id)}
@@ -493,23 +474,23 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                     <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4 items-end">
                         <div>
                             <label className="block text-[10px] font-bold text-muted-foreground mb-1 uppercase">Label</label>
-                            <select value={newSize.label} onChange={e => setNewSize({...newSize, label: e.target.value})} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm">
+                            <select value={newSize.label} onChange={e => setNewSize({ ...newSize, label: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm">
                                 <option value="Full size">Full size</option>
                                 <option value="Small">Small</option>
                                 <option value="Standard">Standard</option>
                                 <option value="Custom">Custom</option>
                             </select>
                             {newSize.label === "Custom" && (
-                                <input type="text" placeholder="Label" value={newSize.customLabel} onChange={e => setNewSize({...newSize, customLabel: e.target.value})} className="w-full mt-2 bg-background/50 border border-border rounded-lg px-3 py-2 text-sm" />
+                                <input type="text" placeholder="Label" value={newSize.customLabel} onChange={e => setNewSize({ ...newSize, customLabel: e.target.value })} className="w-full mt-2 bg-background/50 border border-border rounded-lg px-3 py-2 text-sm" />
                             )}
                         </div>
                         <div>
                             <label className="block text-[10px] font-bold text-muted-foreground mb-1 uppercase">Length</label>
-                            <input type="text" placeholder="e.g. 30cm" value={newSize.length} onChange={e => setNewSize({...newSize, length: e.target.value})} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm" />
+                            <input type="text" placeholder="e.g. 30cm" value={newSize.length} onChange={e => setNewSize({ ...newSize, length: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm" />
                         </div>
                         <div>
                             <label className="block text-[10px] font-bold text-muted-foreground mb-1 uppercase">Breadth</label>
-                            <input type="text" placeholder="e.g. 20cm" value={newSize.breadth} onChange={e => setNewSize({...newSize, breadth: e.target.value})} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm" />
+                            <input type="text" placeholder="e.g. 20cm" value={newSize.breadth} onChange={e => setNewSize({ ...newSize, breadth: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm" />
                         </div>
                         <button type="button" onClick={addSize} className="bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30 px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2">
                             <Plus className="h-4 w-4" /> Add Size
@@ -560,8 +541,16 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 </div>
             </div>
 
+            {/* Upload progress indicator */}
+            {uploadProgress && (
+                <div className="flex items-center gap-3 bg-primary/10 border border-primary/20 rounded-xl px-4 py-3">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary flex-shrink-0" />
+                    <p className="text-sm text-primary font-medium">{uploadProgress}</p>
+                </div>
+            )}
+
             <button type="submit" disabled={loading} className="w-full bg-primary text-primary-foreground font-bold rounded-lg py-3 hover:shadow-lg hover:shadow-primary/20 transition-all duration-300 disabled:opacity-50 flex justify-center items-center gap-2">
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <>{initialData ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />} {initialData ? "Update Product" : "Upload Product"}</>}
+                {loading ? <><Loader2 className="h-5 w-5 animate-spin" /> {uploadProgress || "Uploading..."}</> : <>{initialData ? <Edit className="h-5 w-5" /> : <Plus className="h-5 w-5" />} {initialData ? "Update Product" : "Upload Product"}</>}
             </button>
         </form>
     );
@@ -694,7 +683,7 @@ const AdminDashboard = () => {
                 setOrders(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                 setLoadingOrders(false);
             }, (error) => {
-                console.warn("Could not load orders. Missing Firebase config? Error:", error);
+                console.warn("Could not load orders:", error);
                 setLoadingOrders(false);
             });
             return () => unsubscribe();
@@ -738,7 +727,6 @@ const AdminDashboard = () => {
         if (!window.confirm("Are you sure you want to remove all 12 demo products? This cannot be undone.")) return;
         setRemovingDemos(true);
         try {
-            // Delete products 1 through 12
             let deletedCount = 0;
             for (let i = 1; i <= 12; i++) {
                 try {
@@ -819,7 +807,6 @@ const AdminDashboard = () => {
                                     onClick={handleSeed}
                                     disabled={seeding || removingDemos}
                                     className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 text-xs font-bold flex items-center gap-2 justify-center"
-                                    title="Auto-Seed Default Products"
                                 >
                                     {seeding ? <Loader2 className="h-3 w-3 animate-spin" /> : <Package className="h-3 w-3" />} Add Demos
                                 </button>
@@ -827,7 +814,6 @@ const AdminDashboard = () => {
                                     onClick={handleRemoveDemos}
                                     disabled={seeding || removingDemos}
                                     className="bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/20 px-3 py-2 rounded-lg transition-colors disabled:opacity-50 text-xs font-bold flex items-center gap-2 justify-center"
-                                    title="Remove Demo Products"
                                 >
                                     {removingDemos ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />} Remove Demos
                                 </button>
@@ -838,9 +824,9 @@ const AdminDashboard = () => {
 
                 {activeTab === "products" && (
                     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                        <AddProductForm 
+                        <AddProductForm
                             key={formResetKey}
-                            onProductAdded={() => { setEditingProduct(null); setFormResetKey(k => k + 1); }} 
+                            onProductAdded={() => { setEditingProduct(null); setFormResetKey(k => k + 1); }}
                             initialData={editingProduct}
                             resetKey={formResetKey}
                         />
@@ -886,9 +872,7 @@ const AdminDashboard = () => {
                                                         <div className="text-sm font-medium">{order.customerDetails?.name || 'Guest'}</div>
                                                         <div className="text-xs text-muted-foreground">{order.customerDetails?.email}</div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm text-muted-foreground">
-                                                        {order.items?.length || 0} items
-                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-muted-foreground">{order.items?.length || 0} items</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{order.totalAmount}</td>
                                                 </tr>
                                             ))}
@@ -933,9 +917,7 @@ const AdminDashboard = () => {
                                                         <div className="text-sm font-bold">{customer.name}</div>
                                                     </td>
                                                     <td className="px-6 py-4 text-sm">{customer.email}</td>
-                                                    <td className="px-6 py-4 text-sm text-center font-medium">
-                                                        {customer.orderCount}
-                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-center font-medium">{customer.orderCount}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{customer.totalSpent}</td>
                                                 </tr>
                                             ))}
