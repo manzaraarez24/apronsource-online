@@ -115,7 +115,7 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
         badge: "",
         status: "active" as "active" | "draft" | "deleted"
     });
-    const [mediaItems, setMediaItems] = useState<{ id: string, url: string, type: 'image' | 'video', file?: File }[]>([]);
+    const [mediaItems, setMediaItems] = useState<{ id: string, url: string, type: 'image', file?: File }[]>([]);
     const [sizes, setSizes] = useState<ProductSize[]>([]);
     const [newSize, setNewSize] = useState({ label: "Standard", customLabel: "", length: "", breadth: "" });
 
@@ -148,8 +148,7 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
             setSizes(initialData.sizes || []);
             
             const imagItems = (initialData.images || []).map((url: string) => ({ id: url, url, type: 'image' as const }));
-            const vidItems = (initialData.videos || []).map((url: string) => ({ id: url, url, type: 'video' as const }));
-            setMediaItems([...imagItems, ...vidItems]);
+            setMediaItems(imagItems);
         } else {
             setFormData({
                 name: "", price: "", originalPrice: "", 
@@ -174,7 +173,7 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
             const newItems = files.map(file => ({
                 id: Math.random().toString(36).substr(2, 9),
                 url: URL.createObjectURL(file),
-                type: file.type.startsWith('video/') ? 'video' as const : 'image' as const,
+                type: 'image' as const,
                 file: file
             }));
             setMediaItems(prev => [...prev, ...newItems]);
@@ -211,37 +210,36 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
         });
  
         const filesToUpload = mediaItems.filter(item => item.file).map(item => item.file as File);
-        const existingImages = mediaItems.filter(item => !item.file && item.type === 'image').map(item => item.url);
-        const existingVideos = mediaItems.filter(item => !item.file && item.type === 'video').map(item => item.url);
+        const existingImages = mediaItems.filter(item => !item.file).map(item => item.url);
  
         console.log("2. Form Data Summary:", { 
             name: formData.name, 
             newFiles: filesToUpload.length, 
-            existingMedia: existingImages.length + existingVideos.length 
+            existingMedia: existingImages.length 
         });
         
         try {
             console.log("3. Starting Storage Upload Phase...");
             let newImageUrls: string[] = [];
-            let newVideoUrls: string[] = [];
             
             if (filesToUpload.length > 0) {
                 try {
                     const uploadPromises = filesToUpload.map(async (file) => {
-                        const storagePath = `products/${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${file.name}`;
+                        const storagePath = `products/${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
                         console.log(`   - Uploading ${file.name} to ${storagePath}...`);
                         const storageRef = ref(storage, storagePath);
                         
-                        const snapshot = await withTimeout(uploadBytes(storageRef, file), 120000, `Upload ${file.name}`);
+                        // We remove the 120s timeout wrapper to see if Firebase can throw a native error immediately.
+                        // If it hangs, it means CORS is missing on the bucket or the bucket URL is totally invalid.
+                        const snapshot = await uploadBytes(storageRef, file);
                         console.log(`   - ✅ Uploaded ${file.name}, fetching URL...`);
-                        return await withTimeout(getDownloadURL(snapshot.ref), 20000, `Get URL ${file.name}`);
+                        return await getDownloadURL(snapshot.ref);
                     });
      
                     const newUrls = await Promise.all(uploadPromises);
                     console.log("4. Storage Phase Complete.", { newUrls });
                     
-                    newImageUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('image/'));
-                    newVideoUrls = newUrls.filter((_, i) => filesToUpload[i].type.startsWith('video/'));
+                    newImageUrls = newUrls;
                 } catch (storageError: any) {
                     console.error("⚠️ Storage upload failed:", storageError);
                     console.log("Firebase Code:", storageError.code);
@@ -298,7 +296,6 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 sizes: sizes,
                 updatedAt: Date.now(),
                 images: [...existingImages, ...newImageUrls],
-                videos: [...existingVideos, ...newVideoUrls],
             };
             productData.image = productData.images[0] || initialData?.image || "";
  
@@ -375,17 +372,12 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Media Upload Area */}
                 <div className="col-span-1 md:col-span-2">
-                    <label className="block text-sm font-medium text-muted-foreground mb-2">Product Media (Images & Videos) *</label>
+                    <label className="block text-sm font-medium text-muted-foreground mb-2">Product Images *</label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
                         {mediaItems.map((item, index) => (
                             <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted/20 group">
-                                {item.type === 'image' ? (
-                                    <img src={item.url} alt="Preview" className="h-full w-full object-cover" />
-                                ) : (
-                                    <video src={item.url} className="h-full w-full object-cover" />
-                                )}
+                                <img src={item.url} alt="Preview" className="h-full w-full object-cover" />
                                 <button
                                     type="button"
                                     onClick={() => removeMedia(item.id)}
@@ -396,10 +388,10 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                             </div>
                         ))}
                         <div className="relative border-2 border-dashed border-border rounded-xl aspect-square flex flex-col items-center justify-center bg-muted/20 hover:bg-muted/40 transition-colors cursor-pointer overflow-hidden group">
-                            <input type="file" multiple accept="image/*,video/*" onChange={handleMediaChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
+                            <input type="file" multiple accept="image/*" onChange={handleMediaChange} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                             <div className="text-center p-2">
                                 <Plus className="h-6 w-6 text-muted-foreground mx-auto mb-1 group-hover:text-primary transition-colors" />
-                                <p className="text-[10px] font-medium">Add Media</p>
+                                <p className="text-[10px] font-medium">Add Image</p>
                             </div>
                         </div>
                     </div>
