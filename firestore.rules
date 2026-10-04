@@ -2,17 +2,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Storefront: anyone can browse products; only a logged-in admin can change them.
+    // Only these accounts can use the admin panel. Being signed in isn't enough on its own,
+    // because anyone can create a Firebase account using the site's public API key.
+    // To add an admin: create their login in Firebase Auth, add the email here, and redeploy.
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'manzaraarez@gmail.com',
+          'suhailsaifi262003@gmail.com'
+        ];
+    }
+
+    // Storefront: anyone can browse products; only admins can change them.
     match /products/{productId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     // Checkout: customers (not logged in) can place an order but can't read others' orders.
-    // Admin panel (logged in) can read and manage all orders.
+    // New orders must look like a real checkout (items + address, starting status only).
     match /orders/{orderId} {
-      allow create: if true;
-      allow read, update, delete: if request.auth != null;
+      allow create: if request.resource.data.items is list
+        && request.resource.data.items.size() > 0
+        && request.resource.data.items.size() <= 100
+        && request.resource.data.shippingAddress is map
+        && request.resource.data.status in ['pending', 'whatsapp enquiry'];
+      allow read, update, delete: if isAdmin();
     }
 
     // Anything else is closed.

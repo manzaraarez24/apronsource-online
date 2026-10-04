@@ -44,7 +44,7 @@ const FilterSidebar = ({
   onCategoryChange, onMaterialChange, onColorChange, onPriceRangeChange,
   onClearFilters, mobileOpen, onMobileClose,
 }: FilterSidebarProps) => {
-  const hasFilters = selectedCategory !== "All" || selectedMaterial !== "All" || selectedColor !== "All" || priceRange[0] > 0 || priceRange[1] < 1000;
+  const hasFilters = selectedCategory !== "All" || selectedMaterial !== "All" || selectedColor !== "All" || priceRange[0] > 0 || priceRange[1] > 0;
 
   const content = (
     <div className="p-5">
@@ -71,18 +71,20 @@ const FilterSidebar = ({
         <div className="flex items-center gap-3">
           <input
             type="number"
-            value={priceRange[0]}
-            onChange={(e) => onPriceRangeChange([Number(e.target.value), priceRange[1]])}
+            value={priceRange[0] || ""}
+            min="0"
+            onChange={(e) => onPriceRangeChange([Math.max(0, Number(e.target.value) || 0), priceRange[1]])}
             className="w-20 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20 transition-all"
             placeholder="Min"
           />
           <span className="text-muted-foreground text-sm">to</span>
           <input
             type="number"
-            value={priceRange[1]}
-            onChange={(e) => onPriceRangeChange([priceRange[0], Number(e.target.value)])}
+            value={priceRange[1] || ""}
+            min="0"
+            onChange={(e) => onPriceRangeChange([priceRange[0], Math.max(0, Number(e.target.value) || 0)])}
             className="w-20 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-foreground/10 focus:border-foreground/20 transition-all"
-            placeholder="Max"
+            placeholder="Any"
           />
         </div>
       </div>

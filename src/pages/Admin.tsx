@@ -1,11 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { auth, db } from "../lib/firebase";
 import { uploadImage, UploadError } from "../lib/cloudinary";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc } from "firebase/firestore";
 import { seedProductsToFirestore } from "../data/seedFirestore";
-import { Shield, Package, ShoppingCart, LogOut, Loader2, Database, Plus, Image as ImageIcon, Users, X, Edit, Trash2, RefreshCw, Video, RotateCcw } from "lucide-react";
+import { Shield, Package, ShoppingCart, LogOut, Loader2, Database, Plus, Image as ImageIcon, Users, X, Edit, Trash2, RefreshCw, Video, RotateCcw, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import {
     retailCategories,
@@ -112,12 +112,15 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
         customClosureType: "",
         gsm: "",
         weight: "",
+        rating: "",
+        reviews: "",
         description: "",
         badge: "",
         status: "active" as "active" | "draft" | "deleted"
     });
     const [mediaItems, setMediaItems] = useState<{ id: string, url: string, type: 'image', file?: File }[]>([]);
     const [sizes, setSizes] = useState<ProductSize[]>([]);
+    const [inStock, setInStock] = useState(true);
     const [newSize, setNewSize] = useState({ label: "Standard", customLabel: "", length: "", breadth: "" });
 
     const activeCategories = formData.salesType === "Retail" ? retailCategories : wholesaleCategories;
@@ -125,12 +128,14 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
     // Populate form if initialData is provided
     useEffect(() => {
         if (initialData) {
+            // Use the product's own sales type, not whatever the form currently shows
+            const initialCategories = initialData.salesType === "Wholesale" ? wholesaleCategories : retailCategories;
             setFormData({
                 name: initialData.name || "",
                 price: initialData.price?.toString() || "",
                 originalPrice: initialData.originalPrice?.toString() || "",
-                category: activeCategories.includes(initialData.category) ? initialData.category : "Custom",
-                customCategory: activeCategories.includes(initialData.category) ? "" : initialData.category,
+                category: initialCategories.includes(initialData.category) ? initialData.category : "Custom",
+                customCategory: initialCategories.includes(initialData.category) ? "" : initialData.category,
                 material: materials.includes(initialData.material) ? initialData.material : "Custom",
                 customMaterial: materials.includes(initialData.material) ? "" : initialData.material,
                 color: colors.includes(initialData.color) ? initialData.color : "Custom",
@@ -142,31 +147,39 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 customClosureType: closureTypeOptions.includes(initialData.closureType) || !initialData.closureType ? "" : initialData.closureType,
                 gsm: initialData.gsm?.toString() || "",
                 weight: initialData.weight || "",
+                rating: initialData.rating ? String(initialData.rating) : "",
+                reviews: initialData.reviews ? String(initialData.reviews) : "",
                 description: initialData.description || "",
                 badge: initialData.badge || "",
                 status: initialData.status || "active"
             });
             setSizes(initialData.sizes || []);
+            setInStock(initialData.inStock ?? true);
 
-            const imagItems = (initialData.images || []).map((url: string) => ({ id: url, url, type: 'image' as const }));
+            // Older products may only have the single `image` field
+            const existingImages: string[] = initialData.images?.length ? initialData.images : (initialData.image ? [initialData.image] : []);
+            const imagItems = existingImages.map((url: string) => ({ id: url, url, type: 'image' as const }));
             setMediaItems(imagItems);
         } else {
             setFormData({
                 name: "", price: "", originalPrice: "",
-                category: activeCategories[1] || activeCategories[0], customCategory: "",
+                category: retailCategories[1], customCategory: "",
                 material: materials[1], customMaterial: "",
                 color: colors[1], customColor: "",
                 salesType: "Retail",
                 applicable: "", customApplicable: "",
                 closureType: "", customClosureType: "",
-                gsm: "", weight: "",
+                gsm: "", weight: "", rating: "", reviews: "",
                 description: "", badge: "",
                 status: "active"
             });
             setMediaItems([]);
             setSizes([]);
+            setInStock(true);
         }
-    }, [initialData, activeCategories]);
+        // Only reload when a different product is opened. This used to also depend on the
+        // category list, which wiped the whole form whenever Sales Type changed to Wholesale.
+    }, [initialData]);
 
     const handleMediaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
@@ -201,6 +214,23 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
 
     const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        // Basic checks before uploading anything
+        if (mediaItems.length === 0) {
+            toast.error("Please add at least one product image.");
+            return;
+        }
+        if (Number(formData.price) <= 0) {
+            toast.error("Selling price must be more than ₹0.");
+            return;
+        }
+        if (Number(formData.originalPrice) < Number(formData.price)) {
+            toast.error("Original price can't be lower than the selling price.");
+            return;
+        }
+        if (formData.rating !== "" && (Number(formData.rating) < 0 || Number(formData.rating) > 5)) {
+            toast.error("Rating must be between 0 and 5.");
+            return;
+        }
         setLoading(true);
         setUploadProgress("");
 
@@ -252,9 +282,9 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                 description: formData.description,
                 badge: formData.badge,
                 status: formData.status,
-                rating: initialData?.rating || 0,
-                reviews: initialData?.reviews || 0,
-                inStock: initialData?.inStock ?? true,
+                rating: Math.min(5, Math.max(0, Number(formData.rating) || 0)),
+                reviews: Math.max(0, Math.round(Number(formData.reviews) || 0)),
+                inStock,
                 sizes: sizes,
                 updatedAt: Date.now(),
                 images: allImages,
@@ -290,12 +320,13 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                     salesType: "Retail",
                     applicable: "", customApplicable: "",
                     closureType: "", customClosureType: "",
-                    gsm: "", weight: "",
+                    gsm: "", weight: "", rating: "", reviews: "",
                     description: "", badge: "",
                     status: "active"
                 });
                 setMediaItems([]);
                 setSizes([]);
+                setInStock(true);
             }
 
             setUploadProgress("");
@@ -380,7 +411,12 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                     </div>
                     <div>
                         <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Sales Type *</label>
-                        <select value={formData.salesType} onChange={e => setFormData({ ...formData, salesType: e.target.value as any })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary">
+                        <select value={formData.salesType} onChange={e => {
+                            const salesType = e.target.value;
+                            const cats = salesType === "Wholesale" ? wholesaleCategories : retailCategories;
+                            // Keep the chosen category if it exists in the new list, otherwise pick the first one
+                            setFormData({ ...formData, salesType, category: cats.includes(formData.category) ? formData.category : cats[1] });
+                        }} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary">
                             <option value="Retail">Retail</option>
                             <option value="Wholesale">Wholesale</option>
                         </select>
@@ -449,6 +485,14 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                         <div className="col-span-1 md:col-span-2">
                             <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Weight</label>
                             <input type="text" placeholder="e.g. 350g" value={formData.weight} onChange={e => setFormData({ ...formData, weight: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Rating (0–5)</label>
+                            <input type="number" min="0" max="5" step="0.1" placeholder="e.g. 4.5" value={formData.rating} onChange={e => setFormData({ ...formData, rating: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
+                        </div>
+                        <div className="col-span-1 md:col-span-2">
+                            <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Number of Reviews</label>
+                            <input type="number" min="0" step="1" placeholder="e.g. 120" value={formData.reviews} onChange={e => setFormData({ ...formData, reviews: e.target.value })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary" />
                         </div>
                     </div>
                 </div>
@@ -522,6 +566,14 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                     <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value as any })} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary">
                         <option value="active">Active</option>
                         <option value="draft">Draft</option>
+                        {formData.status === "deleted" && <option value="deleted">In Bin</option>}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold text-muted-foreground mb-1 uppercase tracking-wider">Stock</label>
+                    <select value={inStock ? "in" : "out"} onChange={e => setInStock(e.target.value === "in")} className="w-full bg-background/50 border border-border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-primary">
+                        <option value="in">In Stock</option>
+                        <option value="out">Out of Stock</option>
                     </select>
                 </div>
             </div>
@@ -637,6 +689,9 @@ const ProductList = ({ onEdit }: { onEdit: (product: any) => void }) => {
                                     <span className="font-bold text-primary text-sm">₹{product.price}</span>
                                     <span className="text-[10px] text-muted-foreground line-through">₹{product.originalPrice}</span>
                                 </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                    <span className="text-amber-400">★</span> {Number(product.rating || 0).toFixed(1)} · {product.reviews || 0} reviews
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -645,6 +700,22 @@ const ProductList = ({ onEdit }: { onEdit: (product: any) => void }) => {
         </div>
     );
 };
+
+// Checkout saves the customer under `shippingAddress`; older orders may use `customerDetails`.
+const getOrderCustomer = (order: any) => {
+    const s = order.shippingAddress || {};
+    const c = order.customerDetails || {};
+    const pincode = s.pincode || c.pincode || "";
+    const addressParts = [s.addressLine1 || c.address, s.addressLine2, s.city || c.city, s.state || c.state].filter(Boolean);
+    return {
+        name: s.fullName || c.name || c.fullName || "",
+        phone: s.phone || c.phone || "",
+        email: s.email || c.email || "",
+        address: addressParts.join(", ") + (pincode ? ` - ${pincode}` : ""),
+    };
+};
+
+const ORDER_STATUSES = ["pending", "confirmed", "shipped", "delivered", "cancelled"];
 
 // Dashboard Component
 const AdminDashboard = () => {
@@ -655,6 +726,7 @@ const AdminDashboard = () => {
     const [editingProduct, setEditingProduct] = useState<any | null>(null);
     const [formResetKey, setFormResetKey] = useState(0);
     const [removingDemos, setRemovingDemos] = useState(false);
+    const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
 
     const handleEditProduct = (product: any) => {
         setEditingProduct(product);
@@ -679,26 +751,38 @@ const AdminDashboard = () => {
     }, []);
 
     const customers = orders.reduce((acc: any[], order) => {
-        const details = order.customerDetails;
-        if (!details || !details.email) return acc;
+        const details = getOrderCustomer(order);
+        const key = details.phone || details.email;
+        if (!key) return acc;
 
-        const existing = acc.find(c => c.email === details.email);
+        const existing = acc.find(c => c.key === key);
         if (existing) {
             existing.totalSpent += Number(order.totalAmount || 0);
             existing.orderCount += 1;
-            if (details.phone) existing.phone = details.phone;
-            if (details.name) existing.name = details.name;
         } else {
+            // Orders are newest-first, so the first one seen has the latest details
             acc.push({
+                key,
                 name: details.name || "Guest",
                 email: details.email,
-                phone: details.phone || "N/A",
+                phone: details.phone,
+                address: details.address,
                 totalSpent: Number(order.totalAmount || 0),
                 orderCount: 1
             });
         }
         return acc;
     }, []);
+
+    const updateOrderStatus = async (orderId: string, status: string) => {
+        try {
+            await updateDoc(doc(db, "orders", orderId), { status, updatedAt: Date.now() });
+            toast.success(`Order marked as ${status}`);
+        } catch (error) {
+            console.error("Failed to update order status:", error);
+            toast.error("Could not update the order status. Please try again.");
+        }
+    };
 
     const handleSeed = async () => {
         setSeeding(true);
@@ -844,23 +928,84 @@ const AdminDashboard = () => {
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider">Order ID</th>
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider">Date</th>
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider">Customer</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Shipping Address</th>
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider">Items</th>
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider text-right">Total</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
-                                            {orders.map((order) => (
-                                                <tr key={order.id} className="hover:bg-muted/20 transition-colors">
-                                                    <td className="px-6 py-4 text-sm font-mono text-muted-foreground">{order.id.slice(0, 8)}...</td>
-                                                    <td className="px-6 py-4 text-sm">{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'N/A'}</td>
-                                                    <td className="px-6 py-4">
-                                                        <div className="text-sm font-medium">{order.customerDetails?.name || 'Guest'}</div>
-                                                        <div className="text-xs text-muted-foreground">{order.customerDetails?.email}</div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-muted-foreground">{order.items?.length || 0} items</td>
-                                                    <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{order.totalAmount}</td>
-                                                </tr>
-                                            ))}
+                                            {orders.map((order) => {
+                                                const customer = getOrderCustomer(order);
+                                                const expanded = expandedOrderId === order.id;
+                                                return (
+                                                    <Fragment key={order.id}>
+                                                        <tr
+                                                            onClick={() => setExpandedOrderId(expanded ? null : order.id)}
+                                                            className="hover:bg-muted/20 transition-colors cursor-pointer align-top"
+                                                        >
+                                                            <td className="px-6 py-4 text-sm font-mono text-muted-foreground">{order.id.slice(0, 8)}...</td>
+                                                            <td className="px-6 py-4 text-sm whitespace-nowrap">{order.createdAt?.toDate ? order.createdAt.toDate().toLocaleDateString() : 'N/A'}</td>
+                                                            <td className="px-6 py-4">
+                                                                <div className="text-sm font-medium">{customer.name || 'Guest'}</div>
+                                                                {customer.phone && (
+                                                                    <a href={`tel:${customer.phone}`} onClick={e => e.stopPropagation()} className="block text-xs text-primary hover:underline">{customer.phone}</a>
+                                                                )}
+                                                                {customer.email && <div className="text-xs text-muted-foreground">{customer.email}</div>}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-xs text-muted-foreground max-w-xs">{customer.address || '—'}</td>
+                                                            <td className="px-6 py-4 text-sm text-muted-foreground whitespace-nowrap">
+                                                                {order.items?.length || 0} items
+                                                                <ChevronDown className={`inline h-3.5 w-3.5 ml-1 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                                                            </td>
+                                                            <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{order.totalAmount}</td>
+                                                        </tr>
+                                                        {expanded && (
+                                                            <tr className="bg-muted/10">
+                                                                <td colSpan={6} className="px-6 py-5">
+                                                                    <div className="grid gap-6 md:grid-cols-2">
+                                                                        <div>
+                                                                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Ship To</h4>
+                                                                            <p className="text-sm font-medium">{customer.name || 'Guest'}</p>
+                                                                            <p className="text-sm text-muted-foreground">{customer.address || 'No address provided'}</p>
+                                                                            <p className="text-sm mt-1">Phone: {customer.phone || 'N/A'}</p>
+                                                                            <p className="text-sm">Email: {customer.email || 'N/A'}</p>
+                                                                            <p className="text-sm mt-2 text-muted-foreground">Payment: {order.paymentMethod || 'N/A'}</p>
+                                                                            <label className="flex items-center gap-2 text-sm mt-2">
+                                                                                <span className="text-muted-foreground">Status:</span>
+                                                                                <select
+                                                                                    value={order.status || 'pending'}
+                                                                                    onClick={e => e.stopPropagation()}
+                                                                                    onChange={e => updateOrderStatus(order.id, e.target.value)}
+                                                                                    className="bg-background/50 border border-border rounded-lg px-2 py-1 text-sm capitalize focus:ring-1 focus:ring-primary"
+                                                                                >
+                                                                                    {Array.from(new Set([...ORDER_STATUSES, order.status || 'pending'])).map(s => (
+                                                                                        <option key={s} value={s} className="capitalize">{s}</option>
+                                                                                    ))}
+                                                                                </select>
+                                                                            </label>
+                                                                        </div>
+                                                                        <div>
+                                                                            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Items</h4>
+                                                                            <ul className="space-y-2">
+                                                                                {(order.items || []).map((item: any, i: number) => (
+                                                                                    <li key={i} className="flex items-center gap-3 text-sm">
+                                                                                        {item.image && <img src={item.image} alt={item.name} className="h-10 w-10 rounded-md object-contain bg-white flex-shrink-0" />}
+                                                                                        <span className="flex-1">{item.name}{item.size ? <span className="text-muted-foreground"> ({item.size})</span> : null} <span className="text-muted-foreground">× {item.quantity}</span></span>
+                                                                                        <span className="font-medium">₹{Number(item.price || 0) * Number(item.quantity || 0)}</span>
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                            {order.shippingCost !== undefined && (
+                                                                                <p className="text-xs text-muted-foreground mt-3">Subtotal ₹{order.subtotal ?? '—'} · Shipping ₹{order.shippingCost}</p>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                </td>
+                                                            </tr>
+                                                        )}
+                                                    </Fragment>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -891,17 +1036,22 @@ const AdminDashboard = () => {
                                             <tr className="bg-muted/30 border-b border-border text-sm text-muted-foreground">
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider">Name</th>
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider">Contact</th>
+                                                <th className="px-6 py-4 font-medium uppercase tracking-wider">Address</th>
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider text-center">Orders</th>
                                                 <th className="px-6 py-4 font-medium uppercase tracking-wider text-right">Total Spent</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border">
-                                            {customers.map((customer, idx) => (
-                                                <tr key={idx} className="hover:bg-muted/20 transition-colors">
+                                            {customers.map((customer) => (
+                                                <tr key={customer.key} className="hover:bg-muted/20 transition-colors align-top">
                                                     <td className="px-6 py-4">
                                                         <div className="text-sm font-bold">{customer.name}</div>
                                                     </td>
-                                                    <td className="px-6 py-4 text-sm">{customer.email}</td>
+                                                    <td className="px-6 py-4 text-sm">
+                                                        {customer.phone && <a href={`tel:${customer.phone}`} className="block text-primary hover:underline">{customer.phone}</a>}
+                                                        {customer.email && <div className="text-xs text-muted-foreground">{customer.email}</div>}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs text-muted-foreground max-w-xs">{customer.address || '—'}</td>
                                                     <td className="px-6 py-4 text-sm text-center font-medium">{customer.orderCount}</td>
                                                     <td className="px-6 py-4 text-sm font-bold text-right text-primary">₹{customer.totalSpent}</td>
                                                 </tr>

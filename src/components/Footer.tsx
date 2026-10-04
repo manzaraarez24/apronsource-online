@@ -42,9 +42,9 @@ const Footer = () => (
         <div>
           <h4 className="font-display text-sm font-semibold mb-4 text-foreground">Quick Links</h4>
           <ul className="space-y-2.5 text-sm text-muted-foreground">
-            <li><a href="/#products" className="hover:text-foreground transition-colors">Products</a></li>
-            <li><a href="/#about" className="hover:text-foreground transition-colors">About Us</a></li>
-            <li><a href="/#contact" className="hover:text-foreground transition-colors">Bulk Orders</a></li>
+            <li><Link to="/#products" className="hover:text-foreground transition-colors">Products</Link></li>
+            <li><Link to="/#about" className="hover:text-foreground transition-colors">About Us</Link></li>
+            <li><a href="https://wa.me/919990197268?text=Hello%2C%20I%27m%20interested%20in%20placing%20a%20bulk%20order." target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">Bulk Orders</a></li>
             <li><Link to="/faq" className="hover:text-foreground transition-colors">Returns & FAQ</Link></li>
           </ul>
         </div>

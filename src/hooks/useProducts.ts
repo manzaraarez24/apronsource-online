@@ -4,8 +4,12 @@ import { db } from "../lib/firebase";
 import { Product, products as initialProducts } from "../data/products";
 
 export const useProducts = () => {
-    const [products, setProducts] = useState<Product[]>(initialProducts);
+    // Start empty (with loading=true) rather than with the demo products, which used to
+    // flash on screen and then get swapped for the real catalogue a moment later
+    const [products, setProducts] = useState<Product[]>([]);
     const [loading, setLoading] = useState(true);
+    // true once products come from Firestore (as opposed to the built-in demo fallback)
+    const [isLive, setIsLive] = useState(false);
 
     useEffect(() => {
         let unsubscribe = () => { };
@@ -52,6 +56,7 @@ export const useProducts = () => {
                             // Filter out deleted products for regular users
                             const activeProducts = fetchedProducts.filter(p => p.status !== "deleted");
                             setProducts(activeProducts);
+                            setIsLive(true);
                         } else {
                             // Fallback to local products if collection is empty
                             // This allows the UI to stay beautiful before user seeds the database
@@ -78,5 +83,5 @@ export const useProducts = () => {
         };
     }, []);
 
-    return { products, loading };
+    return { products, loading, isLive };
 };

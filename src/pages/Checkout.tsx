@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { useCart } from "@/hooks/useCart";
 import { useAddresses, INDIAN_STATES, type Address } from "@/hooks/useAddresses";
 import { Product, products as initialProducts } from "@/data/products";
+import { getCartKey } from "@/hooks/useCart";
+import { buildWhatsAppOrderUrl } from "@/lib/whatsapp";
 
 // Label icon map
 const labelIcons: Record<string, any> = {
@@ -52,6 +54,8 @@ const Checkout = () => {
     const [form, setForm] = useState(emptyForm);
     const [placing, setPlacing] = useState(false);
     const [orderSuccess, setOrderSuccess] = useState(false);
+    const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
+    const [tempAddress, setTempAddress] = useState<Address | null>(null);
 
     const hasWholesale = cart.some((item) => item.product.salesType === "Wholesale");
     const shippingCost = cartTotal >= 999 ? 0 : 99;
@@ -85,53 +89,71 @@ const Checkout = () => {
         setShowAddressForm(false);
     };
 
-    const handleSaveAddress = () => {
-        // Validate required fields
-        if (!form.fullName || !form.phone || !form.addressLine1 || !form.city || !form.state || !form.pincode) {
+    const formHasInput = () =>
+        [form.fullName, form.phone, form.email, form.addressLine1, form.addressLine2, form.city, form.state, form.pincode].some((v) => v.trim());
+
+    // Validates the address form and returns cleaned data, or null (with an error toast)
+    const validateForm = (): Omit<Address, "id" | "isDefault"> | null => {
+        const phone = form.phone.replace(/\D/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+        const pincode = form.pincode.replace(/\D/g, "");
+        if (!form.fullName.trim() || !phone || !form.addressLine1.trim() || !form.city.trim() || !form.state || !pincode) {
             toast.error("Please fill in all required fields.");
-            return;
+            return null;
         }
-        if (form.phone.length < 10) {
-            toast.error("Please enter a valid phone number.");
-            return;
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+            toast.error("Please enter a valid 10-digit mobile number.");
+            return null;
         }
-        if (form.pincode.length !== 6) {
+        if (!/^[1-9]\d{5}$/.test(pincode)) {
             toast.error("Please enter a valid 6-digit pincode.");
-            return;
+            return null;
         }
-
-        const addressData: Omit<Address, "id"> = {
+        if (form.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
+            toast.error("Please enter a valid email address (or leave it blank).");
+            return null;
+        }
+        return {
             label: form.label,
-            fullName: form.fullName,
-            phone: form.phone,
-            email: form.email,
-            addressLine1: form.addressLine1,
-            addressLine2: form.addressLine2,
-            city: form.city,
+            fullName: form.fullName.trim(),
+            phone,
+            email: form.email.trim(),
+            addressLine1: form.addressLine1.trim(),
+            addressLine2: form.addressLine2.trim(),
+            city: form.city.trim(),
             state: form.state,
-            pincode: form.pincode,
-            isDefault: addresses.length === 0,
+            pincode,
         };
+    };
 
+    // Saves/uses the address in the form. Returns the address now selected, or null if invalid.
+    const commitAddressForm = (): Address | null => {
+        const addressData = validateForm();
+        if (!addressData) return null;
+
+        let committed: Address;
         if (editingAddressId) {
+            // Don't touch isDefault here — editing used to silently clear the default flag
             updateAddress(editingAddressId, addressData);
-            setSelectedAddressId(editingAddressId);
+            committed = { ...addressData, id: editingAddressId, isDefault: addresses.find((a) => a.id === editingAddressId)?.isDefault ?? false };
             toast.success("Address updated!");
+        } else if (form.saveForLater) {
+            const isDefault = addresses.length === 0;
+            const newId = addAddress({ ...addressData, isDefault });
+            committed = { ...addressData, id: newId, isDefault };
+            toast.success("Address saved!");
         } else {
-            if (form.saveForLater) {
-                const newId = addAddress(addressData);
-                setSelectedAddressId(newId);
-                toast.success("Address saved!");
-            } else {
-                // Use as temporary (not saved) — create a temporary id
-                const tempId = `temp_${Date.now()}`;
-                setSelectedAddressId(tempId);
-                // Store temporarily in a ref-like approach via state
-                (window as any).__tempCheckoutAddress = { ...addressData, id: tempId };
-                toast.success("Address set for this order.");
-            }
+            // Use once for this order without saving it
+            committed = { ...addressData, id: `temp_${Date.now()}`, isDefault: false };
+            setTempAddress(committed);
+            toast.success("Address set for this order.");
         }
+        setSelectedAddressId(committed.id);
         resetForm();
+        return committed;
+    };
+
+    const handleSaveAddress = () => {
+        commitAddressForm();
     };
 
     const handleEditAddress = (addr: Address) => {
@@ -153,67 +175,75 @@ const Checkout = () => {
 
     const getSelectedAddress = (): Address | undefined => {
         if (selectedAddressId?.startsWith("temp_")) {
-            return (window as any).__tempCheckoutAddress;
+            return tempAddress ?? undefined;
         }
         return addresses.find((a) => a.id === selectedAddressId);
     };
 
     const handlePlaceOrder = async () => {
-        const address = getSelectedAddress();
+        // If the customer typed an address but didn't press "Use This Address", use what they typed
+        let address = showAddressForm && formHasInput() ? commitAddressForm() : getSelectedAddress();
+        if (showAddressForm && formHasInput() && !address) return; // validation error already shown
+        if (!address) address = getSelectedAddress();
         if (!address) {
             toast.error("Please select or add a shipping address.");
             return;
         }
 
-        // For wholesale items, redirect to WhatsApp
+        const buildOrder = (extra: Record<string, unknown>) => ({
+            items: cart.map((item) => ({
+                productId: item.product.id,
+                name: item.product.name,
+                price: item.product.price,
+                quantity: item.quantity,
+                size: item.size || "",
+                salesType: item.product.salesType,
+                image: resolveImage(item.product.image || item.product.images?.[0] || "", item.product.id, item.product.name) || "",
+            })),
+            subtotal: cartTotal,
+            createdAt: serverTimestamp(),
+            shippingAddress: {
+                fullName: address!.fullName,
+                phone: address!.phone,
+                email: address!.email,
+                addressLine1: address!.addressLine1,
+                addressLine2: address!.addressLine2,
+                city: address!.city,
+                state: address!.state,
+                pincode: address!.pincode,
+            },
+            ...extra,
+        });
+
+        // Bulk orders are confirmed over WhatsApp. Open it straight away (an await first would
+        // trigger popup blockers), then record the enquiry so it shows up in the admin panel too.
         if (hasWholesale) {
-            const message =
-                "Hello! I would like to place a bulk order:%0A" +
-                cart
-                    .filter((i) => i.product.salesType === "Wholesale")
-                    .map((i) => `- ${i.quantity}x ${i.product.name} (${i.product.category})`)
-                    .join("%0A") +
-                "%0A%0AShipping to: " +
-                `${address.fullName}, ${address.addressLine1}, ${address.city}, ${address.state} - ${address.pincode}` +
-                `%0APhone: ${address.phone}`;
-            window.open(`https://wa.me/919990197268?text=${message}`, "_blank");
+            window.open(buildWhatsAppOrderUrl(cart, address), "_blank");
+            addDoc(collection(db, "orders"), buildOrder({
+                totalAmount: cartTotal,
+                shippingCost: 0,
+                status: "whatsapp enquiry",
+                paymentMethod: "WhatsApp (bulk order)",
+            })).catch((error) => console.warn("Could not record WhatsApp enquiry:", error));
             return;
         }
 
         setPlacing(true);
         try {
-            const orderData = {
-                items: cart.map((item) => ({
-                    productId: item.product.id,
-                    name: item.product.name,
-                    price: item.product.price,
-                    quantity: item.quantity,
-                    image: resolveImage(item.product.image, item.product.id, item.product.name),
-                })),
+            const orderData = buildOrder({
                 totalAmount: grandTotal,
-                subtotal: cartTotal,
                 shippingCost,
                 status: "pending",
                 paymentMethod: "COD",
-                createdAt: serverTimestamp(),
-                shippingAddress: {
-                    fullName: address.fullName,
-                    phone: address.phone,
-                    email: address.email,
-                    addressLine1: address.addressLine1,
-                    addressLine2: address.addressLine2,
-                    city: address.city,
-                    state: address.state,
-                    pincode: address.pincode,
-                },
-            };
+            });
 
-            await addDoc(collection(db, "orders"), orderData);
+            const docRef = await addDoc(collection(db, "orders"), orderData);
+            setPlacedOrderId(docRef.id);
             setOrderSuccess(true);
             clearCart();
         } catch (error) {
             console.error("Order placement error:", error);
-            toast.error("Failed to place order. Please try again.");
+            toast.error("Failed to place order. Please check your internet connection and try again.");
         } finally {
             setPlacing(false);
         }
@@ -230,9 +260,15 @@ const Checkout = () => {
                     <h2 className="font-display text-2xl font-bold text-foreground mb-3 uppercase tracking-wider">
                         Order Placed!
                     </h2>
-                    <p className="text-muted-foreground mb-8">
+                    <p className="text-muted-foreground mb-4">
                         Your order has been placed successfully. We'll notify you when it's shipped.
                     </p>
+                    {placedOrderId && (
+                        <p className="text-sm text-foreground mb-8">
+                            Order ID: <span className="font-mono font-bold select-all">{placedOrderId}</span>
+                            <span className="block text-xs text-muted-foreground mt-1">Keep this ID to track your order.</span>
+                        </p>
+                    )}
                     <Link
                         to="/"
                         className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3 text-sm font-semibold text-primary-foreground shadow-lg hover:shadow-primary/30 hover:shadow-xl transition-all duration-300 glow-blue"
@@ -338,6 +374,32 @@ const Checkout = () => {
                                             </div>
                                         );
                                     })}
+                                </div>
+                            )}
+
+                            {/* One-time (unsaved) address in use for this order */}
+                            {tempAddress && selectedAddressId === tempAddress.id && !showAddressForm && (
+                                <div className={`rounded-xl p-4 border border-primary bg-primary/5 glow-blue ${addresses.length > 0 ? "mt-3" : ""}`}>
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <span className="text-xs font-bold text-primary uppercase tracking-wider">This order only</span>
+                                            <p className="text-sm font-semibold text-foreground mt-1">{tempAddress.fullName}</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">{tempAddress.addressLine1}{tempAddress.addressLine2 && `, ${tempAddress.addressLine2}`}</p>
+                                            <p className="text-xs text-muted-foreground">{tempAddress.city}, {tempAddress.state} — {tempAddress.pincode}</p>
+                                            <p className="text-xs text-muted-foreground mt-1">📞 {tempAddress.phone}{tempAddress.email && ` · ${tempAddress.email}`}</p>
+                                        </div>
+                                        <button
+                                            onClick={() => {
+                                                setForm({ ...tempAddress, saveForLater: false });
+                                                setEditingAddressId(null);
+                                                setShowAddressForm(true);
+                                            }}
+                                            className="p-1.5 rounded-lg hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                                            aria-label="Change address"
+                                        >
+                                            <Edit2 className="h-3.5 w-3.5" />
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -465,15 +527,15 @@ const Checkout = () => {
                             <div className="p-6 space-y-4 max-h-[40vh] overflow-y-auto">
 
                                 {cart.map((item) => (
-                                    <div key={item.product.id} className="flex gap-3">
+                                    <div key={getCartKey(item)} className="flex gap-3">
                                         <img
-                                            src={resolveImage(item.product.image, item.product.id, item.product.name)}
+                                            src={resolveImage(item.product.image || item.product.images?.[0] || "", item.product.id, item.product.name)}
                                             alt={item.product.name}
                                             className="h-16 w-16 rounded-lg object-contain bg-gray-50 flex-shrink-0"
                                         />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-foreground truncate">{item.product.name}</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity}</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">Qty: {item.quantity}{item.size && ` · Size: ${item.size}`}</p>
                                             <p className="text-sm font-bold text-primary mt-0.5">
                                                 ₹{(item.product.price * item.quantity).toLocaleString("en-IN")}
                                             </p>

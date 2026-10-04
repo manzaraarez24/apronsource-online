@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ShoppingCart, Search, Menu, X, User, ChevronDown } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import logo from "@/assets/logo.png";
 
 interface NavbarProps {
@@ -15,6 +15,32 @@ const Navbar = ({ cartCount, onCartClick, searchQuery, onSearchChange }: NavbarP
   const [isScrolled, setIsScrolled] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const location = useLocation();
+
+  // Small delay before closing so the menu doesn't vanish while the cursor moves onto it
+  const openShop = () => {
+    clearTimeout(closeTimer.current);
+    setShopDropdownOpen(true);
+  };
+  const closeShopSoon = () => {
+    clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setShopDropdownOpen(false), 150);
+  };
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
+
+  // Close menus after navigating
+  useEffect(() => {
+    setShopDropdownOpen(false);
+    setMobileMenuOpen(false);
+  }, [location.key]);
+
+  // Already on the home page: React Router won't scroll, so do it here
+  const handleHomeClick = () => {
+    if (location.pathname === "/" && !location.hash) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
 
   useEffect(() => {
     const handleScroll = () => {
@@ -68,7 +94,7 @@ const Navbar = ({ cartCount, onCartClick, searchQuery, onSearchChange }: NavbarP
             </button>
 
             {/* Logo */}
-            <Link to="/" className="flex items-center gap-2.5 shrink-0">
+            <Link to="/" onClick={handleHomeClick} className="flex items-center gap-2.5 shrink-0">
               <img src={logo} alt="ZARRKS logo" className="h-9 w-auto object-contain" />
               <span className="font-display text-xl font-bold tracking-tight text-foreground">
                 ZARRKS
@@ -118,34 +144,44 @@ const Navbar = ({ cartCount, onCartClick, searchQuery, onSearchChange }: NavbarP
 
           {/* Desktop Nav Links */}
           <div className="hidden lg:flex items-center justify-center gap-8 pb-3 text-sm font-medium border-t border-gray-100 pt-3 -mx-4 px-4">
-            <Link to="/" className="text-foreground hover:text-muted-foreground transition-colors">
+            <Link to="/" onClick={handleHomeClick} className="text-foreground hover:text-muted-foreground transition-colors">
               Home
             </Link>
             <div
               className="relative"
-              onMouseEnter={() => setShopDropdownOpen(true)}
-              onMouseLeave={() => setShopDropdownOpen(false)}
+              onMouseEnter={openShop}
+              onMouseLeave={closeShopSoon}
             >
-              <button className="flex items-center gap-1 text-foreground hover:text-muted-foreground transition-colors">
+              <button
+                type="button"
+                onClick={() => setShopDropdownOpen((open) => !open)}
+                aria-expanded={shopDropdownOpen}
+                className="flex items-center gap-1 text-foreground hover:text-muted-foreground transition-colors">
                 Shop <ChevronDown className={`h-3.5 w-3.5 transition-transform ${shopDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {shopDropdownOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50 animate-fade-in">
+                // pt-2 (not mt-2) keeps the hover area continuous between the button and the menu
+                <div className="absolute top-full left-1/2 -translate-x-1/2 pt-2 w-56 z-50">
+                <div className="bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-fade-in">
                   {[
                     { name: "Salon & Spa", icon: "💇" },
                     { name: "Kitchen & Restaurant", icon: "👨‍🍳" },
                     { name: "Home Essentials", icon: "🏠" },
                     { name: "Industrial", icon: "🏭" },
                     { name: "T-Shirts", icon: "👕" },
+                    { name: "Medical & Healthcare", icon: "🩺" },
+                    { name: "Leather & Rexine", icon: "👜" },
                   ].map((item) => (
-                    <a
+                    <Link
                       key={item.name}
-                      href={`#category-${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+                      to={`/#category-${item.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`}
+                      onClick={() => setShopDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-foreground hover:bg-gray-50 transition-colors"
                     >
                       <span>{item.icon}</span> {item.name}
-                    </a>
+                    </Link>
                   ))}
+                </div>
                 </div>
               )}
             </div>
@@ -157,15 +193,15 @@ const Navbar = ({ cartCount, onCartClick, searchQuery, onSearchChange }: NavbarP
             >
               Bulk Order
             </a>
-            <a href="#about" className="text-foreground hover:text-muted-foreground transition-colors">
+            <Link to="/#about" className="text-foreground hover:text-muted-foreground transition-colors">
               About
-            </a>
+            </Link>
             <Link to="/faq" className="text-foreground hover:text-muted-foreground transition-colors">
               FAQ
             </Link>
-            <a href="#contact" className="text-foreground hover:text-muted-foreground transition-colors">
+            <Link to="/#contact" className="text-foreground hover:text-muted-foreground transition-colors">
               Contact
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -190,12 +226,12 @@ const Navbar = ({ cartCount, onCartClick, searchQuery, onSearchChange }: NavbarP
         {mobileMenuOpen && (
           <div className="lg:hidden border-t border-gray-100 bg-white animate-slide-up">
             <div className="px-4 py-4 flex flex-col gap-1">
-              <Link to="/" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
+              <Link to="/" onClick={handleHomeClick} className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
                 Home
               </Link>
-              <a href="#products" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
+              <Link to="/#products" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
                 Shop All
-              </a>
+              </Link>
               <a
                 href="https://wa.me/919990197268?text=Hello,%20I'm%20interested%20in%20placing%20a%20bulk%20order."
                 target="_blank"
@@ -204,15 +240,15 @@ const Navbar = ({ cartCount, onCartClick, searchQuery, onSearchChange }: NavbarP
               >
                 Bulk Order
               </a>
-              <a href="#about" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
+              <Link to="/#about" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
                 About
-              </a>
+              </Link>
               <Link to="/faq" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
                 FAQ
               </Link>
-              <a href="#contact" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
+              <Link to="/#contact" className="py-2.5 px-3 text-sm font-medium text-foreground hover:bg-gray-50 rounded-lg transition-colors">
                 Contact
-              </a>
+              </Link>
             </div>
           </div>
         )}

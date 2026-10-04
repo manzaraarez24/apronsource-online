@@ -242,10 +242,10 @@ export const products: Product[] = [
   }
 ];
 
-export const retailCategories = ["All", "Salon & Spa", "Kitchen & Restaurant", "Home Essentials", "Industrial", "T-Shirts", "Custom"];
-export const wholesaleCategories = ["All", "Salon & Spa", "Kitchen & Restaurant", "Home Essentials", "Industrial", "T-Shirts", "Economy", "Custom"];
+export const retailCategories = ["All", "Salon & Spa", "Kitchen & Restaurant", "Home Essentials", "Industrial", "T-Shirts", "Medical & Healthcare", "Leather & Rexine", "Custom"];
+export const wholesaleCategories = ["All", "Salon & Spa", "Kitchen & Restaurant", "Home Essentials", "Industrial", "T-Shirts", "Medical & Healthcare", "Leather & Rexine", "Economy", "Custom"];
 export const salesTypes = ["All", "Retail", "Wholesale"];
-export const materials = ["All", "Polyester", "Cotton", "Polycotton", "Canvas", "PVC", "Rubber coated", "Nylon", "Rayon", "Custom"];
+export const materials = ["All", "Polyester", "Cotton", "Polycotton", "Canvas", "PVC", "Rubber coated", "Nylon", "Rayon", "Leather", "Rexine", "Custom"];
 export const colors = ["All", "Black", "White", "Blue", "Red", "Yellow", "Green", "Custom"];
 
 export const applicableOptions = ["Salon & spa", "Beauty & care", "Hotel", "Hospital", "School", "Custom"];

@@ -2,9 +2,25 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ArrowLeft, PackageSearch } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { toast } from "sonner";
+import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 
 const TrackOrder = () => {
     const navigate = useNavigate();
+    const [orderId, setOrderId] = useState("");
+
+    // There's no public tracking API yet, so send the order ID to the team on WhatsApp
+    const handleTrack = (e: React.FormEvent) => {
+        e.preventDefault();
+        const id = orderId.trim();
+        if (!id) {
+            toast.error("Please enter your Order ID.");
+            return;
+        }
+        const message = `Hello! Could you share the status of my order? Order ID: ${id}`;
+        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, "_blank");
+    };
 
     return (
         <div className="min-h-screen bg-background flex flex-col">
@@ -25,20 +41,21 @@ const TrackOrder = () => {
 
                     <h2 className="font-display text-2xl font-bold text-foreground mb-4 uppercase tracking-wider">Track Your Package</h2>
                     <p className="text-muted-foreground mb-8">
-                        Enter your Order ID or tracking number to see your delivery status.
+                        Enter the Order ID shown after checkout and we'll send you the latest status on WhatsApp.
                     </p>
 
-                    <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                    <form className="space-y-4" onSubmit={handleTrack}>
                         <div>
                             <input
                                 type="text"
-                                placeholder="Enter Order ID (e.g. ZRK-12345)"
+                                value={orderId}
+                                onChange={(e) => setOrderId(e.target.value)}
+                                placeholder="Enter your Order ID"
                                 className="w-full bg-background/50 border border-border rounded-lg px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/30 transition-all text-center"
                             />
                         </div>
                         <button
                             type="submit"
-                            onClick={() => alert("Tracking API integration coming soon. Please hold tight!")}
                             className="w-full flex items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-lg hover:shadow-primary/30 hover:shadow-xl transition-all duration-300 glow-blue"
                         >
                             <PackageSearch className="h-4 w-4" /> Track Now

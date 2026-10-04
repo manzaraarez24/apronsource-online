@@ -6,7 +6,7 @@ import type { Product } from "@/data/products";
 interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
-  onAddToCart: (product: Product, qty: number) => void;
+  onAddToCart: (product: Product, qty: number, size?: string) => void;
 }
 
 const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModalProps) => {
@@ -52,6 +52,23 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
     }
   }, [product]);
 
+  // Close on Escape and stop the page behind the modal from scrolling
+  useEffect(() => {
+    if (!product) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (showVideoModal) setShowVideoModal(false);
+      else onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [product, onClose, showVideoModal]);
+
   if (!product) return null;
 
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
@@ -65,7 +82,7 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100 animate-fade-in">
-        <button onClick={onClose} className="absolute top-4 right-4 z-20 rounded-full bg-gray-100 p-2 hover:bg-gray-200 transition-colors">
+        <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 z-20 rounded-full bg-gray-100 p-2 hover:bg-gray-200 transition-colors">
           <X className="h-4 w-4" />
         </button>
 
@@ -288,7 +305,7 @@ const ProductDetailModal = ({ product, onClose, onAddToCart }: ProductDetailModa
 
             {/* Add to Cart Button */}
             <button
-              onClick={() => { onAddToCart(product, Math.max(product.salesType === "Wholesale" ? 50 : 1, qty)); onClose(); }}
+              onClick={() => { onAddToCart(product, Math.max(product.salesType === "Wholesale" ? 50 : 1, qty), selectedSize || undefined); onClose(); }}
               disabled={!product.inStock}
               className="w-full flex items-center justify-center gap-2 rounded-full bg-foreground py-3.5 text-sm font-semibold text-background shadow-sm hover:bg-foreground/90 transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-foreground/30"
             >

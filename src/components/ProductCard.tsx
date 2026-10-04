@@ -228,7 +228,10 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (product.inStock) onAddToCart(product, qty);
+              if (!product.inStock) return;
+              // Sized products need a size picked first, so open the details view
+              if (product.sizes && product.sizes.length > 0) onViewDetails(product);
+              else onAddToCart(product, qty);
             }}
             disabled={!product.inStock}
             className="rounded-full bg-foreground p-2.5 text-background shadow-sm hover:bg-foreground/80 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"

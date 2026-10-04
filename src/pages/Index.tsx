@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { SlidersHorizontal, Grid3X3, List, Shield, Truck, Award, Phone, SquareMenu, ArrowRight, ChevronRight } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import Navbar from "@/components/Navbar";
@@ -19,13 +19,25 @@ import imgHomeEssentials from "@/assets/categories/home-essentials.png";
 import imgIndustrial from "@/assets/categories/industrial.png";
 import imgTshirts from "@/assets/categories/tshirts.png";
 
-// Category definitions with imagery matching uniformer.in style
-const CATEGORY_DEFS = [
+// Category definitions with imagery matching uniformer.in style.
+// `image` is optional — categories without a photo get a styled icon panel instead.
+type CategoryDef = {
+  name: string;
+  tagline: string;
+  desc: string;
+  anchor: string;
+  icon: string;
+  image?: string;
+  focus?: string;
+};
+
+const CATEGORY_DEFS: CategoryDef[] = [
   {
     name: "Salon & Spa",
     tagline: "Professional & Elegant",
     desc: "Versatile. Durable. Built for Salons & Spas.",
     anchor: "category-salon---spa",
+    icon: "💇",
     image: imgSalonSpa,
     focus: "50% 15%",
   },
@@ -34,6 +46,7 @@ const CATEGORY_DEFS = [
     tagline: "Hospitality & Culinary",
     desc: "Versatile. Durable. Ready for Any Task.",
     anchor: "category-kitchen---restaurant",
+    icon: "👨‍🍳",
     image: imgKitchenRestaurant,
     focus: "50% 12%",
   },
@@ -42,6 +55,7 @@ const CATEGORY_DEFS = [
     tagline: "Comfort & Luxury",
     desc: "Ultra-Soft. Absorbent. Premium Bath & Bedding.",
     anchor: "category-home-essentials",
+    icon: "🏠",
     image: imgHomeEssentials,
     focus: "50% 65%",
   },
@@ -50,6 +64,7 @@ const CATEGORY_DEFS = [
     tagline: "Heavy-Duty & Protective",
     desc: "Tough. Flame & Water Resistant Workwear.",
     anchor: "category-industrial",
+    icon: "🏭",
     image: imgIndustrial,
     focus: "50% 10%",
   },
@@ -58,8 +73,23 @@ const CATEGORY_DEFS = [
     tagline: "Custom Staff Uniforms",
     desc: "Comfortable. Breathable. Perfect for Teams.",
     anchor: "category-t-shirts",
+    icon: "👕",
     image: imgTshirts,
     focus: "50% 12%",
+  },
+  {
+    name: "Medical & Healthcare",
+    tagline: "Hospital & Clinic Wear",
+    desc: "Hygienic. Comfortable. Lab Coats & Scrubs for Care Teams.",
+    anchor: "category-medical---healthcare",
+    icon: "🩺",
+  },
+  {
+    name: "Leather & Rexine",
+    tagline: "Premium & Long-Lasting",
+    desc: "Rugged. Stylish. Leather & Rexine Aprons Built to Last.",
+    anchor: "category-leather---rexine",
+    icon: "👜",
   },
 ];
 
@@ -71,7 +101,7 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedMaterial, setSelectedMaterial] = useState("All");
   const [selectedColor, setSelectedColor] = useState("All");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 0]);
   const [sortBy, setSortBy] = useState("featured");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false);
@@ -82,18 +112,24 @@ const Index = () => {
     let result = products.filter((p) => {
       if (p.status === "deleted" || p.status === "draft") return false;
       if (p.salesType !== activeTab) return false;
-      if (searchQuery && !p.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.trim().toLowerCase();
+        const haystack = [p.name, p.category, p.material, p.color, p.description].filter(Boolean).join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       if (selectedCategory !== "All" && p.category !== selectedCategory) return false;
       if (selectedMaterial !== "All" && p.material !== selectedMaterial) return false;
       if (selectedColor !== "All" && p.color !== selectedColor) return false;
-      if (p.price < priceRange[0] || p.price > priceRange[1]) return false;
+      if (p.price < priceRange[0]) return false;
+      if (priceRange[1] > 0 && p.price > priceRange[1]) return false;
       return true;
     });
 
     switch (sortBy) {
       case "price-asc": result.sort((a, b) => a.price - b.price); break;
       case "price-desc": result.sort((a, b) => b.price - a.price); break;
-      case "rating": result.sort((a, b) => b.rating - a.rating); break;
+      case "rating": result.sort((a, b) => (b.rating || 0) - (a.rating || 0)); break;
+      case "newest": result.sort((a, b) => (b.createdAt || b.updatedAt || 0) - (a.createdAt || a.updatedAt || 0)); break;
       default: break;
     }
     return result;
@@ -103,7 +139,25 @@ const Index = () => {
     setSelectedCategory("All");
     setSelectedMaterial("All");
     setSelectedColor("All");
-    setPriceRange([0, 5000]);
+    setPriceRange([0, 0]);
+  };
+
+  const wasSearching = useRef(false);
+  useEffect(() => {
+    const searching = searchQuery.trim().length > 0;
+    if (searching && !wasSearching.current) {
+      document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
+    }
+    wasSearching.current = searching;
+  }, [searchQuery]);
+
+  // Open the All Products grid on a category, on whichever tab (Retail/Wholesale) actually has its products
+  const showCategoryInGrid = (category: string) => {
+    const visible = products.filter((p) => p.category === category && p.status !== "deleted" && p.status !== "draft");
+    const hasRetail = visible.some((p) => p.salesType === "Retail");
+    setActiveTab(hasRetail || visible.length === 0 ? "Retail" : "Wholesale");
+    setSelectedCategory(category);
+    document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
   };
 
   // Products grouped by category
@@ -134,20 +188,26 @@ const Index = () => {
             Explore our curated collections for every industry
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 sm:gap-6">
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6">
           {CATEGORY_DEFS.map((cat) => (
             <a
               key={cat.name}
               href={`#${cat.anchor}`}
-              className="group relative h-72 rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-gray-100 flex flex-col justify-end p-5"
+              className="group relative h-72 w-full sm:w-[calc(50%-12px)] lg:w-[calc(25%-18px)] rounded-2xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 bg-gray-100 flex flex-col justify-end p-5"
             >
               {/* Background Photography */}
-              <img
-                src={cat.image}
-                alt={cat.name}
-                className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-700"
-                style={{ objectPosition: cat.focus }}
-              />
+              {cat.image ? (
+                <img
+                  src={cat.image}
+                  alt={cat.name}
+                  className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  style={{ objectPosition: cat.focus }}
+                />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-gray-700 via-gray-800 to-gray-950 flex items-start justify-center pt-12">
+                  <span className="text-7xl opacity-90 group-hover:scale-110 transition-transform duration-700" aria-hidden="true">{cat.icon}</span>
+                </div>
+              )}
               {/* Gradient Overlay for Text Visibility */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent transition-opacity" />
 
@@ -186,12 +246,18 @@ const Index = () => {
               <div className="relative mb-10 rounded-3xl overflow-hidden bg-gray-900 min-h-[300px] md:min-h-[400px] flex items-center shadow-sm">
                 {/* Photo — full-bleed on mobile, right-hand panel on desktop so the square shot isn't over-cropped */}
                 <div className="absolute inset-y-0 right-0 w-full md:w-1/2 lg:w-[45%]">
-                  <img
-                    src={cat.image}
-                    alt={cat.name}
-                    className="h-full w-full object-cover"
-                    style={{ objectPosition: cat.focus }}
-                  />
+                  {cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.name}
+                      className="h-full w-full object-cover"
+                      style={{ objectPosition: cat.focus }}
+                    />
+                  ) : (
+                    <div className="h-full w-full bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 flex items-center justify-end md:justify-center pr-8 md:pr-0">
+                      <span className="text-8xl md:text-[10rem] opacity-40 md:opacity-90" aria-hidden="true">{cat.icon}</span>
+                    </div>
+                  )}
                   <div className="hidden md:block absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-gray-900 to-transparent" />
                 </div>
                 {/* Overlay for text contrast on mobile */}
@@ -209,11 +275,7 @@ const Index = () => {
                     {cat.desc}
                   </p>
                   <button
-                    onClick={() => {
-                      setActiveTab("Retail");
-                      setSelectedCategory(cat.name);
-                      document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
-                    }}
+                    onClick={() => showCategoryInGrid(cat.name)}
                     className="inline-flex items-center gap-2 rounded-lg bg-white text-black text-xs sm:text-sm font-bold uppercase tracking-wider px-6 py-3 hover:bg-gray-100 transition-all duration-300 shadow-md"
                   >
                     SHOP NOW <ArrowRight className="h-4 w-4" />
@@ -232,11 +294,7 @@ const Index = () => {
                   </p>
                 </div>
                 <button
-                  onClick={() => {
-                    setActiveTab("Retail");
-                    setSelectedCategory(cat.name);
-                    document.getElementById("products")?.scrollIntoView({ behavior: "smooth" });
-                  }}
+                  onClick={() => showCategoryInGrid(cat.name)}
                   className="flex items-center gap-1 text-xs font-semibold text-foreground hover:text-muted-foreground transition-colors"
                 >
                   View all products <ChevronRight className="h-4 w-4" />
@@ -258,6 +316,12 @@ const Index = () => {
                         viewMode="grid"
                       />
                     </div>
+                  ))}
+                </div>
+              ) : loading ? (
+                <div className="flex gap-4 sm:gap-6 overflow-hidden" aria-label="Loading products">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="flex-shrink-0 w-[260px] sm:w-[280px] h-[380px] rounded-xl bg-gray-100 animate-pulse" />
                   ))}
                 </div>
               ) : (
@@ -385,7 +449,13 @@ const Index = () => {
               </div>
 
               {/* Product Grid */}
-              {filteredProducts.length === 0 ? (
+              {loading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6" aria-label="Loading products">
+                  {[0, 1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="h-[380px] rounded-xl bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : filteredProducts.length === 0 ? (
                 <div className="bg-white rounded-xl p-16 text-center border border-gray-100 shadow-sm">
                   <p className="text-lg font-semibold text-foreground mb-2">No products found</p>
                   <p className="text-sm text-muted-foreground">Try adjusting your filters or search query</p>
@@ -406,7 +476,7 @@ const Index = () => {
       {/* ═══════════════════════════════════════════════════════════════
           WHY CHOOSE US
           ═══════════════════════════════════════════════════════════════ */}
-      <section id="about" className="mx-auto max-w-7xl px-4 py-14 sm:py-20 sm:px-6 lg:px-8">
+      <section id="about" className="scroll-mt-32 mx-auto max-w-7xl px-4 py-14 sm:py-20 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-3">
             Why Choose ZARRKS?

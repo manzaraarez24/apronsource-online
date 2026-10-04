@@ -14,7 +14,7 @@ const FAQ = () => {
 
     const faqs = [
         {
-            q: "Do you supply customized salon capes?",
+            q: "Do you supply customized products?",
             a: "Yes! We specialize in custom branding for salons and academies. This service is available only on wholesale orders (minimum 50 pieces). Please contact us via WhatsApp for details and mockups.",
         },
         {
