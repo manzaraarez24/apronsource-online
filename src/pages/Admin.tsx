@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../lib/AuthContext";
-import { auth, db, storage } from "../lib/firebase";
+import { auth, db } from "../lib/firebase";
+import { uploadImage, UploadError } from "../lib/cloudinary";
 import { signInWithEmailAndPassword, signOut } from "firebase/auth";
 import { collection, query, orderBy, onSnapshot, addDoc, updateDoc, doc } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { seedProductsToFirestore } from "../data/seedFirestore";
 import { Shield, Package, ShoppingCart, LogOut, Loader2, Database, Plus, Image as ImageIcon, Users, X, Edit, Trash2, RefreshCw, Video, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
@@ -210,19 +210,16 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
         try {
             let newImageUrls: string[] = [];
 
-            // ── Upload images to Firebase Storage ──────────────────────────
+            // ── Upload images to Cloudinary ──────────────────────────
             if (filesToUpload.length > 0) {
                 setUploadProgress(`Uploading ${filesToUpload.length} image(s)...`);
 
-                const uploadPromises = filesToUpload.map(async (file, index) => {
-                    const safeFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-                    const storagePath = `products/${Date.now()}_${Math.random().toString(36).substr(2, 5)}_${safeFileName}`;
-                    const storageRef = ref(storage, storagePath);
-
-                    const snapshot = await uploadBytes(storageRef, file);
-                    const downloadUrl = await getDownloadURL(snapshot.ref);
-                    setUploadProgress(`Uploaded ${index + 1} of ${filesToUpload.length} image(s)...`);
-                    return downloadUrl;
+                let uploaded = 0;
+                const uploadPromises = filesToUpload.map(async (file) => {
+                    const url = await uploadImage(file);
+                    uploaded += 1;
+                    setUploadProgress(`Uploaded ${uploaded} of ${filesToUpload.length} image(s)...`);
+                    return url;
                 });
 
                 // If ANY upload fails, this will throw and stop execution — no silent failures
@@ -309,25 +306,8 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
             setUploadProgress("");
 
             // Specific, actionable error messages instead of silent failures
-            if (error.code === 'storage/bucket-not-found' || error.code === 'storage/project-not-found' || error.code === 'storage/retry-limit-exceeded') {
-                toast.error(
-                    "Image upload failed — the Firebase Storage bucket doesn't exist or can't be reached. In Firebase Console → Storage, make sure Storage is set up (requires the Blaze plan) and the bucket name matches storageBucket in firebase.ts.",
-                    { duration: 12000 }
-                );
-            } else if (error.code === 'storage/unauthorized' || error.code === 'storage/unauthenticated') {
-                toast.error(
-                    "Image upload blocked by Firebase Storage rules. Make sure you're logged in and your Storage rules allow authenticated writes.",
-                    { duration: 10000 }
-                );
-            } else if (error.code === 'storage/unknown' || error.message?.includes('CORS') || error.message?.includes('bucket')) {
-                toast.error(
-                    "Image upload failed — possible wrong storage bucket name. Check that storageBucket in firebase.ts matches your Firebase console (Project Settings → General).",
-                    { duration: 10000 }
-                );
-            } else if (error.code === 'storage/canceled') {
-                toast.error("Upload was cancelled. Please try again.");
-            } else if (error.code?.startsWith('storage/')) {
-                toast.error(`Storage error (${error.code}): ${error.message}`, { duration: 8000 });
+            if (error instanceof UploadError) {
+                toast.error(error.message, { duration: 10000 });
             } else if (error.message?.includes('timed out')) {
                 toast.error("Upload timed out. Check your internet connection and try again.");
             } else {
