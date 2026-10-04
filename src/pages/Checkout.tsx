@@ -469,7 +469,7 @@ const Checkout = () => {
                                         <img
                                             src={resolveImage(item.product.image, item.product.id, item.product.name)}
                                             alt={item.product.name}
-                                            className="h-16 w-16 rounded-lg object-cover flex-shrink-0"
+                                            className="h-16 w-16 rounded-lg object-contain bg-gray-50 flex-shrink-0"
                                         />
                                         <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium text-foreground truncate">{item.product.name}</p>

@@ -21,5 +21,9 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+// The SDK retries failed uploads for up to 10 minutes by default, which looks like a frozen
+// upload when the bucket is missing or unreachable. Fail after 60s so the error surfaces.
+storage.maxUploadRetryTime = 60_000;
+storage.maxOperationRetryTime = 60_000;
 
 export default app;

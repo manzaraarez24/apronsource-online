@@ -309,7 +309,12 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
             setUploadProgress("");
 
             // Specific, actionable error messages instead of silent failures
-            if (error.code === 'storage/unauthorized' || error.code === 'storage/unauthenticated') {
+            if (error.code === 'storage/bucket-not-found' || error.code === 'storage/project-not-found' || error.code === 'storage/retry-limit-exceeded') {
+                toast.error(
+                    "Image upload failed — the Firebase Storage bucket doesn't exist or can't be reached. In Firebase Console → Storage, make sure Storage is set up (requires the Blaze plan) and the bucket name matches storageBucket in firebase.ts.",
+                    { duration: 12000 }
+                );
+            } else if (error.code === 'storage/unauthorized' || error.code === 'storage/unauthenticated') {
                 toast.error(
                     "Image upload blocked by Firebase Storage rules. Make sure you're logged in and your Storage rules allow authenticated writes.",
                     { duration: 10000 }
@@ -353,7 +358,7 @@ const AddProductForm = ({ onProductAdded, initialData, resetKey }: { onProductAd
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-4">
                         {mediaItems.map((item, index) => (
                             <div key={item.id} className="relative aspect-square rounded-xl overflow-hidden border border-border bg-muted/20 group">
-                                <img src={item.url} alt="Preview" className="h-full w-full object-cover" />
+                                <img src={item.url} alt="Preview" className="h-full w-full object-contain" />
                                 {item.file && (
                                     <div className="absolute bottom-1 left-1 bg-emerald-500/80 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
                                         NEW

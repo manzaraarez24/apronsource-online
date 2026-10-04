@@ -15,7 +15,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
   const discount = Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100);
 
   const images = (product.images || []).filter(img => img && img.length > 0);
-  const PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='%231a1f2e' width='400' height='400'/%3E%3Ctext fill='%234a5568' font-family='sans-serif' font-size='20' text-anchor='middle' x='200' y='200'%3ENo Image%3C/text%3E%3C/svg%3E";
+  const PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Crect fill='%23f5f5f5' width='400' height='400'/%3E%3Ctext fill='%23999' font-family='sans-serif' font-size='18' text-anchor='middle' x='200' y='200'%3ENo Image%3C/text%3E%3C/svg%3E";
   const currentImage = images.length > 0 ? images[currentImageIndex] : PLACEHOLDER;
 
   const nextImage = (e: React.MouseEvent) => {
@@ -32,34 +32,82 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
     }
   };
 
+  if (viewMode === "list") {
+    return (
+      <div
+        className="group flex items-center bg-white border border-gray-100 rounded-xl overflow-hidden hover-lift cursor-pointer"
+        onClick={() => onViewDetails(product)}
+      >
+        {/* Image */}
+        <div className="relative overflow-hidden flex-shrink-0 w-32 h-32 lg:w-48 lg:h-48 bg-gray-50">
+          <img
+            src={currentImage}
+            alt={product.name}
+            className="h-full w-full object-contain img-zoom"
+            loading="lazy"
+          />
+          {discount > 0 && (
+            <span className="absolute top-2 left-2 badge-sale">Save {discount}%</span>
+          )}
+        </div>
+
+        {/* Info */}
+        <div className="flex flex-col flex-grow p-4 sm:p-6">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+            {product.category}
+          </p>
+          <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-2">{product.name}</h3>
+
+          {/* Rating */}
+          <div className="flex items-center gap-1 mb-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Star
+                key={i}
+                className={`h-3 w-3 ${i < Math.floor(product.rating) ? "fill-amber-400 text-amber-400" : "text-gray-200"}`}
+              />
+            ))}
+            <span className="text-xs text-muted-foreground ml-1">({product.reviews})</span>
+          </div>
+
+          {/* Price */}
+          <div className="flex items-baseline gap-2 mt-auto">
+            <span className="text-lg font-bold text-foreground">₹{product.price}</span>
+            <span className="text-sm price-original">₹{product.originalPrice}</span>
+            {discount > 0 && (
+              <span className="text-xs text-save">Save {discount}%</span>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`group glass rounded-2xl overflow-hidden transition-all duration-300 hover:glow-blue hover:-translate-y-1 cursor-pointer shimmer ${viewMode === "list" ? "flex items-center" : "flex flex-col"
-        }`}
+      className="group bg-white border border-gray-100 rounded-xl overflow-hidden hover-lift cursor-pointer flex flex-col"
       onClick={() => onViewDetails(product)}
     >
       {/* Image with Slideshow */}
-      <div className={`relative overflow-hidden bg-muted flex-shrink-0 ${viewMode === "list" ? "w-32 h-32 lg:w-48 lg:h-48" : "w-full aspect-square"
-        }`}>
+      <div className="relative overflow-hidden bg-gray-50 w-full aspect-square">
         <img
           src={currentImage}
           alt={product.name}
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          className="h-full w-full object-contain img-zoom"
           loading="lazy"
         />
-        
+
         {/* Image Navigation Arrows */}
         {images.length > 1 && (
           <>
             <button
               onClick={prevImage}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-foreground p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
               onClick={nextImage}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-foreground p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -73,38 +121,50 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
                     e.stopPropagation();
                     setCurrentImageIndex(idx);
                   }}
-                  className={`h-1.5 rounded-full transition-all ${idx === currentImageIndex ? "bg-primary w-4" : "bg-white/50 w-1.5 hover:bg-white/70"}`}
+                  className={`h-1.5 rounded-full transition-all ${
+                    idx === currentImageIndex
+                      ? "bg-foreground w-4"
+                      : "bg-foreground/30 w-1.5 hover:bg-foreground/50"
+                  }`}
                 />
               ))}
             </div>
           </>
         )}
 
-        {/* Dark gradient overlay on image */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[hsl(220,25%,8%,0.6)] via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        {/* Badges */}
+        {discount > 0 && (
+          <span className="absolute top-3 left-3 badge-sale">Save {discount}%</span>
+        )}
         {product.badge && (
-          <span className="absolute top-3 left-3 rounded-full bg-primary px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground glow-blue">
+          <span className="absolute top-3 right-3 rounded-full bg-foreground text-background px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider">
             {product.badge}
           </span>
         )}
         {!product.inStock && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
-            <span className="rounded-full bg-card/90 border border-border px-4 py-2 text-sm font-semibold text-foreground">Out of Stock</span>
+          <div className="absolute inset-0 flex items-center justify-center bg-white/70 backdrop-blur-[2px]">
+            <span className="rounded-full bg-white border border-gray-200 px-4 py-2 text-sm font-semibold text-foreground shadow-sm">
+              Out of Stock
+            </span>
           </div>
         )}
       </div>
 
       {/* Info */}
-      <div className={`flex flex-col flex-grow ${viewMode === "list" ? "p-4 sm:p-6" : "p-4"}`}>
-        <p className="text-xs font-medium text-primary uppercase tracking-widest mb-1">{product.category}</p>
-        <h3 className="text-sm font-semibold text-foreground line-clamp-2 mb-2">{product.name}</h3>
+      <div className="flex flex-col flex-grow p-4">
+        <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-1">
+          {product.category}
+        </p>
+        <h3 className="text-sm font-medium text-foreground line-clamp-2 mb-2 group-hover:text-muted-foreground transition-colors">
+          {product.name}
+        </h3>
 
         {/* Rating */}
         <div className="flex items-center gap-1 mb-3">
           {Array.from({ length: 5 }).map((_, i) => (
             <Star
               key={i}
-              className={`h-3 w-3 ${i < Math.floor(product.rating) ? "fill-primary text-primary" : "text-muted-foreground/30"}`}
+              className={`h-3 w-3 ${i < Math.floor(product.rating) ? "fill-amber-400 text-amber-400" : "text-gray-200"}`}
             />
           ))}
           <span className="text-xs text-muted-foreground ml-1">({product.reviews})</span>
@@ -112,17 +172,20 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
 
         {/* Wholesale Quantity Selector */}
         {product.salesType === "Wholesale" && (
-          <div className={`mb-4 space-y-2 ${viewMode === "list" ? "max-w-xs" : ""}`}>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Bulk Qty (Min 50)</p>
+          <div className="mb-3 space-y-2">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">
+              Bulk Qty (Min 50)
+            </p>
             <div className="flex flex-wrap gap-1.5">
               {[50, 100, 200].map((preset) => (
                 <button
                   key={preset}
                   onClick={(e) => { e.stopPropagation(); setQty(preset); }}
-                  className={`px-2 py-1 text-xs font-semibold rounded border transition-all duration-200 ${qty === preset
-                    ? "bg-primary text-primary-foreground border-primary glow-blue"
-                    : "bg-muted/40 text-foreground border-border hover:bg-primary/10 hover:border-primary/30"
-                    }`}
+                  className={`px-2.5 py-1 text-xs font-semibold rounded-md border transition-all duration-200 ${
+                    qty === preset
+                      ? "bg-foreground text-background border-foreground"
+                      : "bg-white text-foreground border-gray-200 hover:bg-gray-50 hover:border-gray-300"
+                  }`}
                 >
                   {preset}
                 </button>
@@ -143,19 +206,24 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
                 }}
                 onBlur={() => { if (qty < 50) setQty(50); }}
                 placeholder="Custom"
-                className={`w-14 sm:w-16 px-1.5 py-1 text-sm font-semibold rounded border bg-muted/40 text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40 focus:border-primary/30 transition-all ${![50, 100, 200].includes(qty) && qty >= 50 ? "border-primary bg-primary/10 text-primary" : "border-border"
-                  }`}
+                className={`w-16 px-2 py-1 text-xs font-semibold rounded-md border bg-white text-foreground focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all ${
+                  ![50, 100, 200].includes(qty) && qty >= 50 ? "border-foreground bg-gray-50" : "border-gray-200"
+                }`}
               />
             </div>
           </div>
         )}
 
         {/* Price & Add to Cart */}
-        <div className="flex items-center justify-between mt-auto pt-2 border-t border-border/40">
-          <div className="flex items-baseline gap-2">
-            <span className="text-lg font-bold text-foreground">₹{product.price}</span>
-            <span className="text-xs text-muted-foreground line-through">₹{product.originalPrice}</span>
-            <span className="text-xs font-semibold text-emerald-400">{discount}% off</span>
+        <div className="flex items-center justify-between mt-auto pt-3 border-t border-gray-100">
+          <div className="flex flex-col">
+            <div className="flex items-baseline gap-2">
+              <span className="text-lg font-bold text-foreground">₹{product.price}</span>
+              <span className="text-xs price-original">₹{product.originalPrice}</span>
+            </div>
+            {discount > 0 && (
+              <span className="text-xs text-save">Save {discount}%</span>
+            )}
           </div>
           <button
             onClick={(e) => {
@@ -163,7 +231,7 @@ const ProductCard = ({ product, onAddToCart, onViewDetails, viewMode = "grid" }:
               if (product.inStock) onAddToCart(product, qty);
             }}
             disabled={!product.inStock}
-            className="rounded-full bg-primary p-2 text-primary-foreground shadow-md hover:shadow-primary/40 hover:shadow-lg transition-all duration-200 disabled:opacity-40"
+            className="rounded-full bg-foreground p-2.5 text-background shadow-sm hover:bg-foreground/80 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ShoppingCart className="h-4 w-4" />
           </button>
